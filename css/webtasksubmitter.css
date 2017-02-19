@@ -1,0 +1,19 @@
+table th {
+	text-align: center;
+}
+
+div.error {
+	background-color: #f2dede;
+	border: 1px solid #f28888;
+	border-radius: 5px;
+	box-shadow: 0 0 8px rgba(255,0,0,0.5);
+	margin: 10px;
+	padding: 10px;
+	display: inline-block;
+	color: #a94442;
+}
+
+div.login_line {
+	position: relative;
+	float: right;
+}

@@ -34,9 +34,14 @@ print <<EOF
 <html lang="cs">
 <head>
 	<title>UNIX - $webTaskSubmitter->{View}->{title}</title>
+	$webTaskSubmitter->{View}->{headers}
+	<link href='css/example_global.css' rel='stylesheet' type='text/css'>
 </head>
 <body>
+<div class='container'>
+<h1>$webTaskSubmitter->{View}->{title}</h1>
 $output
+</div>
 </body>
 </html>
 EOF

@@ -10,7 +10,8 @@ sub new {
 	my $self = {
 		Main => shift,
 		title => undef,
-		texts => default_texts()
+		texts => default_texts(),
+		headers => default_headers(),
 	};
 	bless $self, $class;
 	return $self;
@@ -40,11 +41,11 @@ sub print_errors() {
 
 	return "" unless keys %$errors;
 
-	my $out = "<p>$texts->{errors_occured}</p><ul class='errors_list'>\n";
+	my $out = "<div class='error'><p>$texts->{errors_occured}</p><ul class='errors_list'>\n";
 	foreach my $key (sort keys %$errors) {
 		$out .= "<li class='error'>$errors->{$key}</li>\n";
 	}
-	$out .= "</ul>\n\n";
+	$out .= "</ul></div>\n\n";
 
 	return $out;
 }
@@ -72,10 +73,10 @@ sub login_page() {
 
 	$out .= sprintf "<p>$texts->{login_not_logged_in} <a href='%s'>$texts->{login_registrate}</a>.</p>\n", $self->get_url('registration');
 	$out .= $self->print_errors();
-	$out .= "<form method='post'><table>\n";
+	$out .= "<form method='post' class='form-horizontal'><table>\n";
 	$out .= sprintf "<tr><th>$texts->{form_login}:</th><td><input type='text' name='login' value='%s'></td></tr>\n", html_escape($data->{name});;
 	$out .= "<tr><th>$texts->{form_password}:</th><td><input type='password' name='passwd'></td></tr>\n";
-	$out .= "<tr><th colspan='2'><input type='submit' value='$texts->{form_submit_login}'></th></tr>\n";
+	$out .= "<tr><th colspan='2'><input type='submit' class='btn btn-primary' value='$texts->{form_submit_login}'></th></tr>\n";
 	$out .= "</table></form>\n";
 	return $out;
 }
@@ -99,7 +100,7 @@ sub registration_page() {
 		$out .= "<tr><th>$texts->{form_password_check}:</th><td><input type='password' name='passwd_check'></td></tr>\n";
 		$out .= sprintf "<tr><th>$texts->{form_name}:</th><td><input type='text' name='name' value='%s'></td></tr>\n", html_escape($data->{name});
 		$out .= sprintf "<tr><th>$texts->{form_email}:</th><td><input type='text' name='email' value='%s'></td></tr>\n", , html_escape($data->{email});
-		$out .= "<tr><th colspan='2'><input type='submit' value='$texts->{form_submit_registrate}'></th></tr>\n";
+		$out .= "<tr><th colspan='2'><input type='submit' class='btn btn-primary' value='$texts->{form_submit_registrate}'></th></tr>\n";
 		$out .= "</table></form>\n";
 	}
 	return $out;
@@ -115,7 +116,7 @@ sub tasklist_page() {
 	my $out = $self->print_login_line();
 	$out .= "<p>$texts->{tasklist_intro}</p>\n";
 
-	$out .= "<table><thead>\n<tr>";
+	$out .= "<table class='table table-striped table-bordered'><thead>\n<tr>";
 		$out .= "<th>$texts->{tasklist_task_name}</th>";
 		$out .= "<th>$texts->{tasklist_submit_status}</th>";
 		$out .= "<th>$texts->{tasklist_points}</th>";
@@ -169,6 +170,15 @@ sub task_page() {
 }
 
 ################################################################################
+sub default_headers() {
+	my $self = shift;
+	my $out = "";
+	$out .= "<link href='css/bootstrap.css' rel='stylesheet' type='text/css'>\n";
+	$out .= "<link href='css/webtasksubmitter.css' rel='stylesheet' type='text/css'>\n";
+
+	return $out;
+}
+
 sub default_texts() {
 	return {
 		logged_in_as => 'Přihlášen jako',
@@ -216,7 +226,7 @@ sub default_texts() {
 
 		task_title => 'Úloha',
 		task_deadline => 'Deadline',
-		task_points => 'Body',
+		task_points => 'Získané body',
 		task_description => 'Zadání',
 	}
 }
