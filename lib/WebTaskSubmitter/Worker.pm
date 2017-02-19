@@ -81,10 +81,37 @@ sub manage_registration() {
 
 sub manage_logout() {
 	my $self = shift;
-
 	$self->{Main}->{status} = 'logout_completed';
-
 	$self->{Main}->logout();
+}
+
+sub get_task() {
+	my $self = shift;
+	my $code = shift;
+	my $taskdb = $self->{Main}->{tasks};
+
+	return undef unless defined $taskdb->{tasks}->{$code};
+
+	my $task = $taskdb->{tasks}->{$code};
+	my @enabled = grep($_->{task} eq $code, @{$taskdb->{enabled_tasks}});
+
+	$task->{enabled} = (scalar @enabled);
+	$task->{deadline} = @enabled[0]->{deadline} if $task->{enabled};
+	$task->{max_points} = @enabled[0]->{max_points} if $task->{enabled};
+
+	return $task;
+}
+
+sub manage_task() {
+	my $self = shift;
+	my $data = $self->{Main}->{data};
+	my $taskdb = $self->{Main}->{tasks};
+
+	my $task = $self->get_task($data->{code});
+	# Check if task exists...
+	$self->{Main}->redirect('tasklist') unless $task;
+	# ... and is enabled
+	$self->{Main}->redirect('tasklist') unless $task->{enabled};
 }
 
 1;

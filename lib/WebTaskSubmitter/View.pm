@@ -3,6 +3,8 @@ package WebTaskSubmitter::View;
 use common::sense;
 use UCW::CGI;
 
+use Data::Dumper;
+
 sub new {
 	my $class = shift;
 	my $self = {
@@ -50,6 +52,7 @@ sub print_errors() {
 sub print_login_line() {
 	my $self = shift;
 	my $texts = $self->{texts};
+	my $taskdb = $self->{Main}->{tasks};
 
 	return sprintf "<div class='login_line'>$texts->{logged_in_as} <strong>%s</strong> <a href='%s'>[$texts->{logout}]</a></div>\n", $self->{Main}->{user}->{name}, $self->get_url('logout');
 }
@@ -105,11 +108,64 @@ sub registration_page() {
 sub tasklist_page() {
 	my $self = shift;
 	my $texts = $self->{texts};
+	my $taskdb = $self->{Main}->{tasks};
 
 	$self->{title} = $texts->{tasklist_title};
 
 	my $out = $self->print_login_line();
 	$out .= "<p>$texts->{tasklist_intro}</p>\n";
+
+	$out .= "<table><thead>\n<tr>";
+		$out .= "<th>$texts->{tasklist_task_name}</th>";
+		$out .= "<th>$texts->{tasklist_submit_status}</th>";
+		$out .= "<th>$texts->{tasklist_points}</th>";
+		$out .= "<th>$texts->{tasklist_deadline}</th>";
+		$out .= "<th>$texts->{tasklist_short_desc}</th>";
+	$out .= "</tr>\n</thead><tbody>\n";
+	foreach my $t (@{$taskdb->{enabled_tasks}}) {
+		my $taskcode = $t->{task};
+		my $deadline = $t->{deadline};
+		my $max_points = $t->{max_points};
+		my $task = $taskdb->{tasks}->{$taskcode};
+
+		my $points = 0;
+		my $status = 'new';
+
+		$out .= "<tr class='$status'>";
+		$out .= sprintf "<th><a href='%s'>$task->{name}</a></th>", $self->get_url('task', {code => $taskcode});
+		$out .= "<td>--TODO--</td>";
+		$out .= "<td>$points/$max_points</td>";
+		$out .= "<td>$deadline</td>";
+		$out .= "<td>$task->{short_desc}</td>";
+		$out .= "</tr>\n";
+	}
+	$out .= "</tbody></table>\n";
+
+	return $out;
+}
+
+sub task_page() {
+	my $self = shift;
+	my $data = $self->{Main}->{data};
+	my $texts = $self->{texts};
+	my $taskdb = $self->{Main}->{tasks};
+
+	my $task = $self->{Main}->{Worker}->get_task($data->{code});
+
+	my $points = 0;
+
+	#################
+	$self->{title} = "$texts->{task_title} $task->{name}";
+
+	my $out = $self->print_login_line();
+
+	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
+	$out .= "<strong>$texts->{task_points}:</strong> <strong>$points</strong>/$task->{max_points}<br>\n";
+	$out .= "<strong>$texts->{task_description}:</strong><br>\n<div class='task_description'>\n";
+	$out .= $task->{text};
+	$out .= "\n</div>\n\n";
+
+	return $out;
 }
 
 ################################################################################
@@ -152,6 +208,16 @@ sub default_texts() {
 
 		tasklist_title => 'Seznam úloh',
 		tasklist_intro => 'Vyberte si úlohu',
+		tasklist_submit_status => 'Stav',
+		tasklist_task_name => 'Úloha',
+		tasklist_points => 'Body',
+		tasklist_short_desc => 'Popis',
+		tasklist_deadline => 'Termín',
+
+		task_title => 'Úloha',
+		task_deadline => 'Deadline',
+		task_points => 'Body',
+		task_description => 'Zadání',
 	}
 }
 

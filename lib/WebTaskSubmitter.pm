@@ -102,11 +102,13 @@ sub process($) {
 	my $userid = "";
 	my $password = "";
 	$self->{dbh} = DBI->connect($dsn, $userid, $password, { RaiseError => 1 }) or die $DBI::errstr;
+	#$self->{dbh}->{sqlite_unicode} = 1;
 
 	# Parse arguments from submitted form (if there are some)
 	my $data = {};
 	my $param_table = {
-		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|detail', default => DEFAULT_PAGE },
+		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|task', default => DEFAULT_PAGE },
+		code		=> { var => \$data->{code}, check => '\w+' },
 		# Login/registration related fields
 		login		=> { var => \$data->{login} },
 		passwd		=> { var => \$data->{passwd} },
@@ -189,7 +191,10 @@ sub process($) {
 		$self->{Worker}->manage_logout();
 	}
 
-	# 3)
+	# 3) Tasks related stuff
+	if ($self->{page} eq 'task') {
+		$self->{Worker}->manage_task();
+	}
 
 	$self->{processed} = 1;
 }
@@ -208,7 +213,7 @@ sub render($) {
 	} elsif ($self->{user}->{type} eq 'teacher') {
 		# TODO
 	} else {
-		return $self->{View}->task_detail_page() if ($self->{page} eq 'detail');
+		return $self->{View}->task_page() if ($self->{page} eq 'task');
 		return $self->{View}->tasklist_page();
 	}
 }

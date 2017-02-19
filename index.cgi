@@ -33,7 +33,7 @@ print <<EOF
 <!doctype html>
 <html lang="cs">
 <head>
-	<title>$webTaskSubmitter->{View}->{title}</title>
+	<title>UNIX - $webTaskSubmitter->{View}->{title}</title>
 </head>
 <body>
 $output
