@@ -17,3 +17,30 @@ div.login_line {
 	position: relative;
 	float: right;
 }
+
+div.solution_code .CodeMirror {
+	height: auto;
+}
+
+div.comment, div#epiceditor {
+	border: 1px #cccccc solid;
+	box-shadow: 0 0 6px rgba(150,150,150,0.5);
+	padding: 5px;
+	margin: 5px 0px;
+}
+
+div.comment.teacher {
+	background-color: #F9D0AD;
+	border: 1px orange solid;
+}
+
+div.comment span.author {
+	display: block;
+	border-bottom: 1px #cccccc solid;
+	border-bottom-color: inherit;
+}
+
+div.comment span.date {
+	float: right;
+	color: #777777;
+}

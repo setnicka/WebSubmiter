@@ -88,7 +88,7 @@ sub process($) {
 
 	# Init Worker and View
 	$self->{Worker} = new WebTaskSubmitter::Worker($self);
-	$self->{View} = new WebTaskSubmitter::View($self);
+	$self->{View} = new WebTaskSubmitter::View($self, $self->{Worker});
 
 	# Load tasks database
 	unless ($self->{tasks} = do "./$self->{options}->{tasks_file}") {
@@ -107,7 +107,7 @@ sub process($) {
 	# Parse arguments from submitted form (if there are some)
 	my $data = {};
 	my $param_table = {
-		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|task', default => DEFAULT_PAGE },
+		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|task|solution', default => DEFAULT_PAGE },
 		code		=> { var => \$data->{code}, check => '\w+' },
 		# Login/registration related fields
 		login		=> { var => \$data->{login} },
@@ -117,6 +117,8 @@ sub process($) {
 		email		=> { var => \$data->{email} },
 		# Solutions related fields
 		sid		=> { var => \$data->{sid}, check => '\d+', default => 0},
+		solution_code	=> { var => \$data->{solution_code}, multiline => 1, default => '' },
+		solution_comment=> { var => \$data->{solution_comment}, multiline => 1, default => ''},
 
 
 		# timetable       => { var => \$self->{_timetable_mode}, check => 'full|org|freeorgs|singleedit|edit', default => 'full'},
@@ -192,9 +194,8 @@ sub process($) {
 	}
 
 	# 3) Tasks related stuff
-	if ($self->{page} eq 'task') {
-		$self->{Worker}->manage_task();
-	}
+	$self->{Worker}->manage_task() if ($self->{page} eq 'task');
+	$self->{Worker}->manage_solution() if ($self->{page} eq 'solution');
 
 	$self->{processed} = 1;
 }
@@ -214,6 +215,7 @@ sub render($) {
 		# TODO
 	} else {
 		return $self->{View}->task_page() if ($self->{page} eq 'task');
+		return $self->{View}->solution_page() if ($self->{page} eq 'solution');
 		return $self->{View}->tasklist_page();
 	}
 }

@@ -2,7 +2,7 @@
 
 use common::sense;
 
-use CGI::Carp 'fatalsToBrowser'; # TODO: remove this before production use
+# use CGI::Carp 'fatalsToBrowser'; # TODO: remove this before production use
 
 # To load packages from current directory
 use FindBin;
@@ -12,12 +12,19 @@ use WebTaskSubmitter;
 
 # Configuration for WebTaskSubmitter:
 my $webTaskSubmitter = new WebTaskSubmitter({
+	teacher_name => "Reginald Barclay", # name to display in discussion and etc
 	teacher_passwd => "myTestPassword",
+
 	db_file => "data/webtaskdb.sqlite",
 	tasks_file => "data/tasks.pl",
 	auth_cookie_secret => "someTotallyRandomSecretString", # Change it to YOUR secret string, used to hash login cookies
 
-	script_url => "" # URL used in module would be created as <script_url>?page=tasklist... (for index.cgi "" is the best)
+	date_format_deadline => "%H:%M %d.%m.%Y",
+	date_format_submits => "%H:%M:%S %d.%m.%Y",
+
+	css_path => "./css",
+	js_path => "./js",
+	script_url => "" # URL used in module would be created as <script_url>?page=tasklist... (for index.cgi is value "" the best option)
 });
 
 # Pre-render worker (may do some redirection and exit)

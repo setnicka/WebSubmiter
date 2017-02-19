@@ -3,6 +3,9 @@ package WebTaskSubmitter::Worker;
 use common::sense;
 use Digest::SHA qw/sha1_hex/;
 use Email::Valid;
+use Text::Markdown 'markdown';
+
+use Data::Dumper;
 
 sub new {
 	my $class = shift;
@@ -106,12 +109,71 @@ sub manage_task() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
 	my $taskdb = $self->{Main}->{tasks};
+	my $dbh = $self->{Main}->{dbh};
 
 	my $task = $self->get_task($data->{code});
 	# Check if task exists...
 	$self->{Main}->redirect('tasklist') unless $task;
 	# ... and is enabled
 	$self->{Main}->redirect('tasklist') unless $task->{enabled};
+
+	# If there is solution submitted
+	if (length($data->{solution_code})) {
+		my $sth = $dbh->prepare('INSERT INTO solutions(task, uid, code, date) VALUES(?,?,?,CURRENT_TIMESTAMP) ');
+		$sth->execute($data->{code}, $self->{Main}->{user}->{uid}, $data->{solution_code});
+
+		my ($sid) = $dbh->selectrow_array('SELECT last_insert_rowid()');
+		my $html = markdown($data->{solution_comment});
+
+		$sth = $dbh->prepare('INSERT INTO comments(sid, teacher, text, html, date) VALUES(?,0,?,?,CURRENT_TIMESTAMP)');
+		$sth->execute($sid, $data->{solution_comment}, $html);
+
+		$self->{Main}->redirect('solution', {sid => $sid});
+	}
+}
+
+sub get_solution() {
+	my $self = shift;
+	my $sid = shift;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('SELECT * FROM solutions WHERE sid=?');
+	$sth->execute($sid);
+	return $sth->fetchrow_hashref();
+}
+
+sub get_all_comments() {
+	my $self = shift;
+	my $sid = shift;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('SELECT * FROM comments WHERE sid=?');
+	$sth->execute($sid);
+	return $sth->fetchall_hashref('cid');
+}
+
+sub manage_solution() {
+	my $self = shift;
+	my $data = $self->{Main}->{data};
+	my $dbh = $self->{Main}->{dbh};
+	my $user = $self->{Main}->{user};
+
+	my $row = $self->get_solution($data->{sid});
+	$self->{Main}->redirect('tasklist') unless ($row);
+	# Test if logged in user (or teacher)
+	$self->{Main}->redirect('tasklist') unless ($user->{type} eq 'teacher' || $row->{uid} == $user->{uid});
+
+	# If there is comment submitted
+	if (length($data->{solution_comment})) {
+		my $html = markdown($data->{solution_comment});
+
+		my $sth = $dbh->prepare('INSERT INTO comments(sid, teacher, text, html, date) VALUES(?,?,?,?,CURRENT_TIMESTAMP)');
+		$sth->execute($data->{sid}, 0, $data->{solution_comment}, $html);
+
+		$self->{Main}->redirect('solution', {sid => $data->{sid}});
+	}
+
+	# TODO teacher
 }
 
 1;
