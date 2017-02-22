@@ -3,6 +3,8 @@ package WebTaskSubmitter;
 use common::sense;
 
 use UCW::CGI;
+$UCW::CGI::utf8_mode = 1;
+
 use DBI;
 use Digest::SHA qw/sha1_hex/;
 
