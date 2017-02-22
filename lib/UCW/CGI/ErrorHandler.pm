@@ -19,24 +19,12 @@ our $print_errors = 0;
 my $error_reported;
 our $exit_code;
 
-# XXX: Not expecting error objects, just strings
-sub report_bug(@) {
-	# Detect direct invocation (to keep track of context)
-	my @caller = caller;
-	if (@caller && $caller[0] ne 'UCW::CGI::ErrorHandler') {
-		# Mimics die() behavior
-		$@ = join '', @_;
-		$@ =~ /\n$/ or $@ .= " at $caller[1] line $caller[2].\n";
-		# This is the first die call, report_bug will be called again
-		# from handler defined below.
-		die $@;
-	}
-	# Report error
+sub report_bug($)
+{
 	if (!defined $error_reported) {
 		$error_reported = 1;
+		print STDERR $_[0];
 		if (defined($error_hook)) {
-			# Error hooks should have side-effect, may die (with new
-			# error message)
 			&$error_hook($_[0]);
 		} else {
 			print "Status: 500\n";
@@ -49,18 +37,12 @@ sub report_bug(@) {
 			print "Please notify $error_mail\n" if defined $error_mail;
 		}
 	}
-
-	# Letting die() bubble up, where interpreter finally prints it on
-	# STDERR which is usually directed to the main server error log.
-	# Since die() cannot be cancelled, this is the best option.
-	die @_;
+	die;
 }
 
 BEGIN {
-	# TODO: `man perlvar` advises in Bugs section not to use $SIG{__DIE__}
-	# When executing eval, do nothing ($^S == 1)
-	$SIG{__DIE__} = sub($) { die @_ if $^S; report_bug("ERROR: " . $_[0]); };
-	$SIG{__WARN__} = sub($) { die @_ if $^S; report_bug("WARNING: " . $_[0]); };
+	$SIG{__DIE__} = sub { report_bug($_[0]); };
+	$SIG{__WARN__} = sub { report_bug("WARNING: " . $_[0]); };
 	$exit_code = 0;
 }
 
