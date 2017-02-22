@@ -82,6 +82,10 @@ sub get_task() {
 	$task->{deadline} = @enabled[0]->{deadline} if $task->{enabled};
 	$task->{max_points} = @enabled[0]->{max_points} if $task->{enabled};
 
+	my $counts = $self->get_solution_counts(undef, $code);
+	$task->{count_solutions} = $counts->{$code}->{total} || 0;
+	$task->{count_solutions_rated} = $counts->{$code}->{rated} || 0;
+
 	return $task;
 }
 
@@ -116,23 +120,23 @@ sub get_all_solutions() {
 
 	my $sth;
 	if (defined $task && defined $uid) {
-		$sth = $dbh->prepare('SELECT * FROM solutions WHERE uid=? AND task=?');
+		$sth = $dbh->prepare('SELECT * FROM solutions LEFT JOIN users USING(uid) WHERE uid=? AND task=?');
 		$sth->execute($uid, $task);
 	} elsif (defined $uid) {
-		$sth = $dbh->prepare('SELECT * FROM solutions WHERE uid=?');
+		$sth = $dbh->prepare('SELECT * FROM solutions LEFT JOIN users USING(uid) WHERE uid=?');
 		$sth->execute($uid);
 	} elsif (defined $task) {
-		$sth = $dbh->prepare('SELECT * FROM solutions WHERE task=?');
+		$sth = $dbh->prepare('SELECT * FROM solutions LEFT JOIN users USING(uid) WHERE task=?');
 		$sth->execute($task);
 	}
-	return $sth->fetchall_hashref('sid');
+	return $sth->fetchall_hashref(['uid', 'sid']);
 }
 
 sub get_solution() {
 	my ($self, $sid) = @_;
 	my $dbh = $self->{Main}->{dbh};
 
-	my $sth = $dbh->prepare('SELECT * FROM solutions WHERE sid=?');
+	my $sth = $dbh->prepare('SELECT * FROM solutions LEFT JOIN users USING(uid) WHERE sid=?');
 	$sth->execute($sid);
 	return $sth->fetchrow_hashref();
 }
@@ -144,7 +148,7 @@ sub get_all_comments() {
 	my $sid = shift;
 	my $dbh = $self->{Main}->{dbh};
 
-	my $sth = $dbh->prepare('SELECT * FROM comments WHERE sid=?');
+	my $sth = $dbh->prepare('SELECT * FROM comments LEFT JOIN users USING(uid) WHERE sid=?');
 	$sth->execute($sid);
 	return $sth->fetchall_hashref('cid');
 }

@@ -3,7 +3,7 @@ use utf8;
 {
 # Enabled tasks, in this order they will be displayed
 enabled_tasks => [
-	{task => 'video_convert', max_points => 10, deadline => '2017-02-20 08:00'},
+	{task => 'video_convert', max_points => 10, deadline => '2017-02-22 08:00'},
 	{task => 'test', max_points => 10, deadline => '2017-02-20 08:00'},
 ],
 

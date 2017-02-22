@@ -122,8 +122,13 @@ sub tasklist_page() {
 
 	$out .= "<table class='tasklist table table-striped table-bordered'><thead>\n<tr>";
 		$out .= "<th>$texts->{tasklist_task_name}</th>";
-		$out .= "<th>$texts->{tasklist_submit_status}</th>";
-		$out .= "<th>$texts->{tasklist_points}</th>";
+		if ($user->{type} eq 'teacher') {
+			$out .= "<th>$texts->{tasklist_solutions_unrated}</th>";
+			$out .= "<th>$texts->{tasklist_solutions}</th>";
+		} else {
+			$out .= "<th>$texts->{tasklist_submit_status}</th>";
+			$out .= "<th>$texts->{tasklist_points}</th>";
+		}
 		$out .= "<th>$texts->{tasklist_deadline}</th>";
 		$out .= "<th>$texts->{tasklist_short_desc}</th>";
 	$out .= "</tr>\n</thead><tbody>\n";
@@ -140,20 +145,27 @@ sub tasklist_page() {
 			if ($task->{count_solutions} > 0) {
 				push @classes, 'full_points' if $task->{max_points} <= $task->{points};
 				push @classes, 'part_points' if $task->{max_points} > $task->{points} && $task->{points} > 0;
-				push @classes, 'submitted' if $task->{points} == 0;
+				push @classes, 'waiting' if $task->{points} == 0;
 
 				$status = $task->{count_solutions} == $task->{count_solutions_rated} ? $texts->{status_rated} : $texts->{status_submitted};
 			} else {
 				push @classes, 'not_submitted';
 				$status = $texts->{status_not_submitted};
 			}
+		} else {
+			push @classes, 'waiting' if $task->{count_solutions} > $task->{count_solutions_rated};
 		}
 		my $classes = join(' ', @classes);
 
 		$out .= "<tr class='$classes'>";
 		$out .= sprintf "<th><a href='%s'>$task->{name}</a></th>", $self->get_url('task', {code => $task->{code}});
-		$out .= "<td>$status</td>";
-		$out .= "<td>$task->{points} / $task->{max_points}</td>";
+		if ($user->{type} eq 'teacher') {
+			$out .= sprintf "<th><a href='%s'>%s</a></th>", $self->get_url('task', {code => $task->{code}}), $task->{count_solutions} - $task->{count_solutions_rated};
+			$out .= "<th>$task->{count_solutions}</th>";
+		} else {
+			$out .= "<th>$status</th>";
+			$out .= "<th>$task->{points} / $task->{max_points}</th>";
+		}
 		$out .= "<td>$task->{deadline}</td>";
 		$out .= "<td>$task->{short_desc}</td>";
 		$out .= "</tr>\n";
@@ -182,7 +194,7 @@ sub task_page() {
 	$out .= sprintf "<a href='%s'>$texts->{task_back_to_tasklist}</a><br>\n", $self->get_url('tasklist');
 
 	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
-	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n";
+	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n" unless $user->{type} eq 'teacher';
 	$out .= "<strong>$texts->{task_description}:</strong><br>\n<div class='task_description'>\n";
 	$out .= $task->{text};
 	$out .= "\n</div>\n\n";
@@ -192,26 +204,35 @@ sub task_page() {
 	$out .= "<hr><h3>$texts->{solutions_list}</h3>\n";
 
 	if (%$all_solutions) {
-		$out .= "<table class='solutions table table-stripped table-bordered'><thead>\n<tr>";
-			$out .= "<th>$texts->{solutions_date}</th>";
-			$out .= "<th>$texts->{solutions_status}</th>";
-			$out .= "<th>$texts->{solutions_points}</th>";
-			$out .= "<th>$texts->{solutions_detail}</th>";
-		$out .= "</tr>\n</thead><tbody>\n";
+		$out .= "<table class='solutions table table-stripped table-bordered'>";
+		for my $uid (sort keys %$all_solutions) {
+			my $user_solutions = $all_solutions->{$uid};
+			$out .= "<thead>\n<tr>";
+				$out .= "<th>$texts->{solutions_user}</th>" if $user->{type} eq 'teacher';
+				$out .= "<th>$texts->{solutions_date}</th>";
+				$out .= "<th>$texts->{solutions_status}</th>";
+				$out .= "<th>$texts->{solutions_points}</th>";
+				$out .= "<th>$texts->{solutions_detail}</th>";
+			$out .= "</tr>\n</thead><tbody>\n";
 
-		for my $key (sort keys %$all_solutions) {
-			my $solution = $all_solutions->{$key};
+			for my $key (sort keys %$user_solutions) {
+				my $solution = $user_solutions->{$key};
+				utf8::decode($solution->{name});
 
-			my $class = $solution->{points} == $counts->{max_points} ? 'full_points' : 'part_points';
-			$class = 'waiting' unless $solution->{rated};
+				my $class = $solution->{points} == $counts->{max_points} ? 'full_points' : 'part_points';
+				$class = 'waiting' unless $solution->{rated};
 
-			my $status = $solution->{rated} ? $texts->{status_rated} : $texts->{status_submitted};
+				my $status = $solution->{rated} ? $texts->{status_rated} : $texts->{status_submitted};
 
-			$out .= "<tr class='$class'><td>$solution->{date}</td><td>$status</td><td>$solution->{points} / $task->{max_points}</td>";
-			$out .= sprintf "<td><a href='%s'>$texts->{solutions_detail}</a></td></tr>\n", $self->get_url('solution', {sid => $solution->{sid}});
+				$out .= "<tr class='$class'>";
+				$out .= sprintf "<td>%s</td>", html_escape($solution->{name}) if $user->{type} eq 'teacher';
+				$out .= "<td>$solution->{date}</td><td>$status</td><td>$solution->{points} / $task->{max_points}</td>";
+				$out .= sprintf "<td><a href='%s'>$texts->{solutions_detail}</a></td></tr>\n", $self->get_url('solution', {sid => $solution->{sid}});
+			}
+
+			$out .= "</tbody>\n";
 		}
-
-		$out .= "</tbody></table>\n";
+		$out .= "</table>\n";
 	} else {
 		$out .= "<i>$texts->{solutions_no_solutions}</i><br>\n";
 	}
@@ -261,6 +282,7 @@ sub solution_page() {
 	my $task = $self->{Model}->get_task($solution->{task});
 	my $counts = $self->{Model}->get_solution_counts($user->{type} eq 'teacher' ? undef : $user->{uid}, $solution->{task})->{$solution->{task}};
 	utf8::decode($solution->{code});
+	utf8::decode($solution->{name});
 
 	################
 	$self->{title} = "$texts->{solution_title} $task->{name}";
@@ -269,7 +291,7 @@ sub solution_page() {
 	$out .= sprintf "<a href='%s'>$texts->{task_back_to_tasklist}</a> | <a href='%s'>$texts->{solution_back_to_task}</a><br>\n", $self->get_url('tasklist'), $self->get_url('task', {code => $solution->{task}});
 
 	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
-	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n";
+	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n" unless $user->{type} eq 'teacher';
 	$out .= "<strong>$texts->{task_description}:</strong><br>\n<div class='task_description'>\n";
 	$out .= $task->{text};
 	$out .= "\n</div>\n\n";
@@ -277,6 +299,8 @@ sub solution_page() {
 	my $status = $solution->{rated} ? $texts->{status_rated} : $texts->{status_submitted};
 
 	$out .= "<hr><h3>$texts->{solution_submitted_solution}</h3>\n";
+	$out .= sprintf "<strong>$texts->{solution_author}:</strong> %s &lt;<a href='mailto:%s'>%s</a>&gt;<br>\n",
+		html_escape($solution->{name}), html_escape($solution->{email}), html_escape($solution->{email}) if $user->{type} eq 'teacher';
 	$out .= "<strong>$texts->{solution_submit_date}:</strong> $solution->{date}<br>\n";
 	$out .= "<strong>$texts->{solution_status}:</strong> $status<br>\n";
 	$out .= "<strong>$texts->{solution_points}:</strong> <strong>$solution->{points}</strong> / $task->{max_points}<br>\n";
@@ -302,9 +326,11 @@ sub solution_page() {
 	for my $key (sort keys %$comments) {
 		my $comment = $comments->{$key};
 		utf8::decode($comment->{html});
+		utf8::decode($comment->{name});
 
-		my $author = ($comment->{teacher} ? $options->{teacher_name} : $user->{name});
 		my $teacher_class = ($comment->{teacher} ? ' teacher' : '');
+		my $author = html_escape($comment->{name});
+		$author .= " ($texts->{comment_teacher})" if $comment->{teacher};
 
 		$out .= "<div class='comment$teacher_class'>\n";
 		$out .= "<span class='date'>$comment->{date}</span><span class='author'>$texts->{comment_author}: <strong>$author</strong></span>\n";
@@ -318,6 +344,17 @@ sub solution_page() {
 	$out .= "<button type='submit' class='btn btn-primary'>$texts->{form_submit_add_comment}</button>\n";
 	$out .= "</form>\n";
 	$out .= $self->get_epiceditor();
+
+	return $out unless $user->{type} eq 'teacher';
+
+	$out .= "<hr><form class='form-inline' method='post'>\n";
+	$out .= "<div class='form-group'>\n<label for='set_points'>$texts->{form_set_points}:</label>\n";
+	$out .= "<input type='text' size='4' value='$solution->{points}' id='set_points' name='set_points'>\n</div>\n";
+	$out .= "<strong>$texts->{form_set_status}:</strong> ";
+	$out .= sprintf "<label class='radio-inline'><input type='radio' name='set_status' value='open' %s>$texts->{form_status_open}</label>\n", $solution->{rated} ? '': 'checked';
+	$out .= sprintf "<label class='radio-inline'><input type='radio' name='set_status' value='rated' %s>$texts->{form_status_rated}</label>\n", $solution->{rated} ? 'checked' : '';
+	$out .= "<button type='submit' class='btn btn-primary'>$texts->{form_submit_set}</button>\n";
+	$out .= "</form>\n";
 
 	return $out;
 }
@@ -376,11 +413,16 @@ sub default_texts() {
 		form_email => 'Email',
 		form_solution_code => 'Kód řešení',
 		form_comment => 'Komentář',
+		form_set_points => 'Body',
+		form_set_status => 'Stav',
+		form_status_open => 'Neohodnoceno',
+		form_status_rated => 'Ohodnoceno',
 
 		form_submit => 'Odeslat',
 		form_submit_login => 'Přihlásit',
 		form_submit_registrate => 'Registrovat',
 		form_submit_add_comment => 'Přidat komentář',
+		form_submit_set => 'Nastav',
 
 		# Global handling:
 		errors_occured => 'Při zpracování formuláře se vyskytly chyby:',
@@ -412,6 +454,8 @@ sub default_texts() {
 		tasklist_points => 'Body',
 		tasklist_short_desc => 'Popis',
 		tasklist_deadline => 'Termín',
+		tasklist_solutions => 'Celkem řešení',
+		tasklist_solutions_unrated => 'Neohodnocených řešení',
 
 		task_title => 'Úloha',
 		task_deadline => 'Deadline',
@@ -427,6 +471,7 @@ sub default_texts() {
 		solutions_detail => 'Detail',
 
 		solution_title => 'Řešení úlohy',
+		solution_author => 'Autor řešení',
 		solution_submit_new => 'Vložit nové řešení',
 		solution_submitted_solution => 'Odeslané řešení',
 		solution_submit_date => 'Datum odeslání',
@@ -437,6 +482,7 @@ sub default_texts() {
 
 		comment_author => 'Autor',
 		comment_date => 'Datum',
+		comment_teacher => 'učitel'
 	}
 }
 

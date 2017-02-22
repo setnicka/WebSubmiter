@@ -122,13 +122,18 @@ sub manage_solution() {
 	if (length($data->{solution_comment})) {
 		my $html = markdown($data->{solution_comment});
 
-		my $sth = $dbh->prepare('INSERT INTO comments(sid, teacher, text, html, date) VALUES(?,?,?,?,CURRENT_TIMESTAMP)');
-		$sth->execute($data->{sid}, 0, $data->{solution_comment}, $html);
+		my $sth = $dbh->prepare('INSERT INTO comments(sid, uid, teacher, text, html, date) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)');
+		$sth->execute($data->{sid}, $user->{uid}, ($user->{type} eq 'teacher'), $data->{solution_comment}, $html);
 
 		$self->{Main}->redirect('solution', {sid => $data->{sid}});
 	}
 
-	# TODO teacher
+	if ($user->{type} eq 'teacher' && length($data->{set_points})) {
+		my $sth = $dbh->prepare('UPDATE solutions SET points=?, rated=? WHERE sid=?');
+		$sth->execute($data->{set_points}, ($data->{set_status} eq 'rated'), $data->{sid});
+
+		$self->{Main}->redirect('solution', {sid => $data->{sid}});
+	}
 }
 
 1;
