@@ -3,7 +3,6 @@ package WebTaskSubmitter::Worker;
 use common::sense;
 use Digest::SHA 'sha1_hex';
 use Email::Valid;
-use Text::Markdown 'markdown';
 
 use Data::Dumper;
 
@@ -96,12 +95,9 @@ sub manage_task() {
 	if (length($data->{solution_code})) {
 		my $sth = $dbh->prepare('INSERT INTO solutions(task, uid, code, date) VALUES(?,?,?,CURRENT_TIMESTAMP) ');
 		$sth->execute($data->{code}, $self->{Main}->{user}->{uid}, $data->{solution_code});
-
 		my ($sid) = $dbh->selectrow_array('SELECT last_insert_rowid()');
-		my $html = markdown($data->{solution_comment});
 
-		$sth = $dbh->prepare('INSERT INTO comments(sid, teacher, text, html, date) VALUES(?,0,?,?,CURRENT_TIMESTAMP)');
-		$sth->execute($sid, $data->{solution_comment}, $html);
+		$self->{Model}->add_comment($sid, $data->{solution_comment});
 
 		$self->{Main}->redirect('solution', {sid => $sid});
 	}
@@ -120,11 +116,7 @@ sub manage_solution() {
 
 	# If there is comment submitted
 	if (length($data->{solution_comment})) {
-		my $html = markdown($data->{solution_comment});
-
-		my $sth = $dbh->prepare('INSERT INTO comments(sid, uid, teacher, text, html, date) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)');
-		$sth->execute($data->{sid}, $user->{uid}, ($user->{type} eq 'teacher'), $data->{solution_comment}, $html);
-
+		$self->{Model}->add_comment($data->{sid}, $data->{solution_comment});
 		$self->{Main}->redirect('solution', {sid => $data->{sid}});
 	}
 

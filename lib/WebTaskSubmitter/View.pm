@@ -205,7 +205,7 @@ sub task_page() {
 
 	if (%$all_solutions) {
 		$out .= "<table class='solutions table table-stripped table-bordered'>";
-		for my $uid (sort keys %$all_solutions) {
+		for my $uid (sort { $a <=> $b } keys %$all_solutions) {
 			my $user_solutions = $all_solutions->{$uid};
 			$out .= "<thead>\n<tr>";
 				$out .= "<th>$texts->{solutions_user}</th>" if $user->{type} eq 'teacher';
@@ -215,7 +215,7 @@ sub task_page() {
 				$out .= "<th>$texts->{solutions_detail}</th>";
 			$out .= "</tr>\n</thead><tbody>\n";
 
-			for my $key (sort keys %$user_solutions) {
+			for my $key (sort { $a <=> $b } keys %$user_solutions) {
 				my $solution = $user_solutions->{$key};
 				utf8::decode($solution->{name});
 
@@ -323,7 +323,7 @@ sub solution_page() {
 	$out .= "<h3>$texts->{solution_comments}</h3>\n";
 
 	my $comments = $self->{Model}->get_all_comments($data->{sid});
-	for my $key (sort keys %$comments) {
+	for my $key (sort { $a <=> $b } keys %$comments) {
 		my $comment = $comments->{$key};
 		utf8::decode($comment->{html});
 		utf8::decode($comment->{name});

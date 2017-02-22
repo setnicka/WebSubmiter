@@ -2,6 +2,7 @@ package WebTaskSubmitter::Model;
 
 use common::sense;
 use Digest::SHA qw/sha1_hex/;
+use Text::Markdown 'markdown';
 
 sub new {
 	my $class = shift;
@@ -92,7 +93,7 @@ sub get_task() {
 #### SOLUTIONS #################################################################
 
 sub get_solution_counts() {
-	my ($self, $uid, $task) = shift;
+	my ($self, $uid, $task) = @_;
 	my $dbh = $self->{Main}->{dbh};
 
 	my @values = ();
@@ -151,6 +152,17 @@ sub get_all_comments() {
 	my $sth = $dbh->prepare('SELECT * FROM comments LEFT JOIN users USING(uid) WHERE sid=?');
 	$sth->execute($sid);
 	return $sth->fetchall_hashref('cid');
+}
+
+sub add_comment() {
+	my ($self, $sid, $comment) = @_;
+	my $user = $self->{Main}->{user};
+	my $dbh = $self->{Main}->{dbh};
+
+	my $html = markdown($comment);
+
+	my $sth = $dbh->prepare('INSERT INTO comments(sid, uid, teacher, text, html, date) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)');
+	$sth->execute($sid, $user->{uid}, ($user->{type} eq 'teacher'), $comment, $html);
 }
 
 1;
