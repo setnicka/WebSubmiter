@@ -3,6 +3,7 @@ package WebTaskSubmitter::View;
 use common::sense;
 use UCW::CGI;
 use POSIX;
+use Date::Parse;
 
 use Data::Dumper;
 
@@ -10,6 +11,7 @@ sub new {
 	my $class = shift;
 	my $self = {
 		Main => shift,
+		Model => shift,
 		Worker => shift,
 		title => undef,
 		texts => default_texts(),
@@ -27,7 +29,7 @@ sub set_texts($) {
 	}
 }
 
-sub get_url() {
+sub get_url($$) {
 	my ($self, $page, $parameters) = @_;
 	my $url = "$self->{Main}->{options}->{script_url}?page=$page";
 	foreach my $param (sort keys %$parameters) {
@@ -55,9 +57,9 @@ sub print_errors() {
 sub print_login_line() {
 	my $self = shift;
 	my $texts = $self->{texts};
-	my $taskdb = $self->{Main}->{tasks};
 
-	return sprintf "<div class='login_line'>$texts->{logged_in_as} <strong>%s</strong> <a href='%s'>[$texts->{logout}]</a></div>\n", $self->{Main}->{user}->{name}, $self->get_url('logout');
+	my $text = $self->{Main}->{user}->{type} eq 'teacher' ? $texts->{logged_in_teacher} : $texts->{logged_in_as};
+	return sprintf "<div class='login_line'>$text <strong>%s</strong> <a href='%s'>[$texts->{logout}]</a></div>\n", $self->{Main}->{user}->{name}, $self->get_url('logout');
 }
 
 ################################################################################
@@ -111,34 +113,48 @@ sub registration_page() {
 sub tasklist_page() {
 	my $self = shift;
 	my $texts = $self->{texts};
-	my $taskdb = $self->{Main}->{tasks};
+	my $user = $self->{Main}->{user};
 
 	$self->{title} = $texts->{tasklist_title};
 
 	my $out = $self->print_login_line();
 	$out .= "<p>$texts->{tasklist_intro}</p>\n";
 
-	$out .= "<table class='table table-striped table-bordered'><thead>\n<tr>";
+	$out .= "<table class='tasklist table table-striped table-bordered'><thead>\n<tr>";
 		$out .= "<th>$texts->{tasklist_task_name}</th>";
 		$out .= "<th>$texts->{tasklist_submit_status}</th>";
 		$out .= "<th>$texts->{tasklist_points}</th>";
 		$out .= "<th>$texts->{tasklist_deadline}</th>";
 		$out .= "<th>$texts->{tasklist_short_desc}</th>";
 	$out .= "</tr>\n</thead><tbody>\n";
-	foreach my $t (@{$taskdb->{enabled_tasks}}) {
-		my $taskcode = $t->{task};
-		my $deadline = $t->{deadline};
-		my $max_points = $t->{max_points};
-		my $task = $taskdb->{tasks}->{$taskcode};
 
-		my $points = 0;
-		my $status = 'new';
+	my @tasks = $self->{Model}->get_enabled_tasks($user->{type} eq 'teacher' ? undef : $user->{uid});
 
-		$out .= "<tr class='$status'>";
-		$out .= sprintf "<th><a href='%s'>$task->{name}</a></th>", $self->get_url('task', {code => $taskcode});
-		$out .= "<td>--TODO--</td>";
-		$out .= "<td>$points/$max_points</td>";
-		$out .= "<td>$deadline</td>";
+	foreach my $task (@tasks) {
+		my $deadline = str2time($task->{deadline});
+
+		my @classes = ();
+		my $status;
+		push @classes, 'missed' if $deadline < time();
+		if ($user->{type} ne 'teacher') {
+			if ($task->{count_solutions} > 0) {
+				push @classes, 'full_points' if $task->{max_points} <= $task->{points};
+				push @classes, 'part_points' if $task->{max_points} > $task->{points} && $task->{points} > 0;
+				push @classes, 'submitted' if $task->{points} == 0;
+
+				$status = $task->{count_solutions} == $task->{count_solutions_rated} ? $texts->{status_rated} : $texts->{status_submitted};
+			} else {
+				push @classes, 'not_submitted';
+				$status = $texts->{status_not_submitted};
+			}
+		}
+		my $classes = join(' ', @classes);
+
+		$out .= "<tr class='$classes'>";
+		$out .= sprintf "<th><a href='%s'>$task->{name}</a></th>", $self->get_url('task', {code => $task->{code}});
+		$out .= "<td>$status</td>";
+		$out .= "<td>$task->{points} / $task->{max_points}</td>";
+		$out .= "<td>$task->{deadline}</td>";
 		$out .= "<td>$task->{short_desc}</td>";
 		$out .= "</tr>\n";
 	}
@@ -151,29 +167,61 @@ sub task_page() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
 	my $texts = $self->{texts};
-	my $taskdb = $self->{Main}->{tasks};
 	my $options = $self->{Main}->{options};
+	my $user = $self->{Main}->{user};
 
-	my $task = $self->{Worker}->get_task($data->{code});
+	my $task = $self->{Model}->get_task($data->{code});
+	my $counts = $self->{Model}->get_solution_counts($user->{type} eq 'teacher' ? undef : $user->{uid}, $data->{code})->{$data->{code}};
 
-	# my $all_solutions = $self->{Worker}->get_all_solutions();
-
-	my $points = 0;
+	my $all_solutions = $self->{Model}->get_all_solutions($user->{type} eq 'teacher' ? undef : $user->{uid}, $data->{code});
 
 	#################
 	$self->{title} = "$texts->{task_title} $task->{name}";
 
 	my $out = $self->print_login_line();
+	$out .= sprintf "<a href='%s'>$texts->{task_back_to_tasklist}</a><br>\n", $self->get_url('tasklist');
 
 	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
-	$out .= "<strong>$texts->{task_points}:</strong> <strong>$points</strong>/$task->{max_points}<br>\n";
+	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n";
 	$out .= "<strong>$texts->{task_description}:</strong><br>\n<div class='task_description'>\n";
 	$out .= $task->{text};
 	$out .= "\n</div>\n\n";
 
 	# TODO: List of submitted solutions
 
-	$out .= "<h3>$texts->{solution_submit_new}</h3>\n";
+	$out .= "<hr><h3>$texts->{solutions_list}</h3>\n";
+
+	if (%$all_solutions) {
+		$out .= "<table class='solutions table table-stripped table-bordered'><thead>\n<tr>";
+			$out .= "<th>$texts->{solutions_date}</th>";
+			$out .= "<th>$texts->{solutions_status}</th>";
+			$out .= "<th>$texts->{solutions_points}</th>";
+			$out .= "<th>$texts->{solutions_detail}</th>";
+		$out .= "</tr>\n</thead><tbody>\n";
+
+		for my $key (sort keys %$all_solutions) {
+			my $solution = $all_solutions->{$key};
+
+			my $class = $solution->{points} == $counts->{max_points} ? 'full_points' : 'part_points';
+			$class = 'waiting' unless $solution->{rated};
+
+			my $status = $solution->{rated} ? $texts->{status_rated} : $texts->{status_submitted};
+
+			$out .= "<tr class='$class'><td>$solution->{date}</td><td>$status</td><td>$solution->{points} / $task->{max_points}</td>";
+			$out .= sprintf "<td><a href='%s'>$texts->{solutions_detail}</a></td></tr>\n", $self->get_url('solution', {sid => $solution->{sid}});
+		}
+
+		$out .= "</tbody></table>\n";
+	} else {
+		$out .= "<i>$texts->{solutions_no_solutions}</i><br>\n";
+	}
+
+	unless ($data->{action} eq 'new') {
+		$out .= sprintf "<a href='%s'>$texts->{solution_submit_new}</a>\n", $self->get_url('task', {code => $data->{code}, action => 'new'});
+		return $out;
+	}
+
+	$out .= "<hr><h3>$texts->{solution_submit_new}</h3>\n";
 	$out .= "<form method='post'>\n";
 	$out .= "<div class='form-group'>\n<label for='solution_code'>$texts->{form_solution_code}:</label>\n";
 	$out .= "<textarea class='form-control' name='solution_code' id='solution_code'></textarea>\n</div>\n";
@@ -206,34 +254,35 @@ sub solution_page() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
 	my $texts = $self->{texts};
-	my $taskdb = $self->{Main}->{tasks};
 	my $options = $self->{Main}->{options};
 	my $user = $self->{Main}->{user};
 
-	my $solution = $self->{Worker}->get_solution($data->{sid});
-	my $task = $self->{Worker}->get_task($solution->{task});
-
-	my $points = 0;
+	my $solution = $self->{Model}->get_solution($data->{sid});
+	my $task = $self->{Model}->get_task($solution->{task});
+	my $counts = $self->{Model}->get_solution_counts($user->{type} eq 'teacher' ? undef : $user->{uid}, $solution->{task})->{$solution->{task}};
+	utf8::decode($solution->{code});
 
 	################
 	$self->{title} = "$texts->{solution_title} $task->{name}";
 
 	my $out = $self->print_login_line();
+	$out .= sprintf "<a href='%s'>$texts->{task_back_to_tasklist}</a> | <a href='%s'>$texts->{solution_back_to_task}</a><br>\n", $self->get_url('tasklist'), $self->get_url('task', {code => $solution->{task}});
 
 	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
-	$out .= "<strong>$texts->{task_points}:</strong> <strong>$points</strong>/$task->{max_points}<br>\n";
+	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n";
 	$out .= "<strong>$texts->{task_description}:</strong><br>\n<div class='task_description'>\n";
 	$out .= $task->{text};
 	$out .= "\n</div>\n\n";
 
-	# TODO: List of submitted solutions
+	my $status = $solution->{rated} ? $texts->{status_rated} : $texts->{status_submitted};
 
-	$out .= "<h3>$texts->{solution_submitted_solution}</h3>\n";
+	$out .= "<hr><h3>$texts->{solution_submitted_solution}</h3>\n";
 	$out .= "<strong>$texts->{solution_submit_date}:</strong> $solution->{date}<br>\n";
-	$out .= "<strong>$texts->{solution_points}:</strong> <strong>$solution->{points}</strong>/$task->{max_points}<br>\n";
+	$out .= "<strong>$texts->{solution_status}:</strong> $status<br>\n";
+	$out .= "<strong>$texts->{solution_points}:</strong> <strong>$solution->{points}</strong> / $task->{max_points}<br>\n";
 	$out .= sprintf "<div class='solution_code'><textarea disabled class='form-control' id='solution_code'>%s</textarea></div>\n\n", html_escape($solution->{code});
 
-	foreach my $js ('codemirror/codemirror.js', 'codemirror/matchbrackets.js', 'codemirror/active-line.js', 'codemirror/shell.js', 'epiceditor.min.js') {
+	foreach my $js ('codemirror/codemirror.js', 'codemirror/matchbrackets.js', 'codemirror/shell.js', 'epiceditor.min.js') {
 		$self->{headers} .= "<script src='$options->{js_path}/$js'></script>\n";
 	}
 	$self->{headers} .= "<link rel='stylesheet' href='$options->{css_path}/codemirror/codemirror.css'><link rel='stylesheet' href='$options->{css_path}/codemirror/midnight.css'>\n";
@@ -241,7 +290,6 @@ sub solution_page() {
 	var codeMirror = CodeMirror.fromTextArea(document.getElementById('solution_code'), {
 		mode: 'shell',
 		lineNumbers: true,
-		styleActiveLine: true,
 		matchBrackets: true,
 		theme: 'midnight',
 		readOnly: 'nocursor'
@@ -250,7 +298,7 @@ sub solution_page() {
 
 	$out .= "<h3>$texts->{solution_comments}</h3>\n";
 
-	my $comments = $self->{Worker}->get_all_comments($data->{sid});
+	my $comments = $self->{Model}->get_all_comments($data->{sid});
 	for my $key (sort keys %$comments) {
 		my $comment = $comments->{$key};
 		utf8::decode($comment->{html});
@@ -314,7 +362,12 @@ sub get_epiceditor() {
 sub default_texts() {
 	return {
 		logged_in_as => 'Přihlášen jako',
+		logged_in_teacher => 'Přihlášen učitel',
 		logout => 'odhlásit se',
+
+		status_not_submitted => 'Neodevzdáno',
+		status_submitted => 'Odevzdáno',
+		status_rated => 'Ohodnoceno',
 
 		form_login => 'Login',
 		form_password => 'Heslo',
@@ -364,13 +417,23 @@ sub default_texts() {
 		task_deadline => 'Deadline',
 		task_points => 'Získané body',
 		task_description => 'Zadání',
+		task_back_to_tasklist => 'Zpět na seznam úloh',
+
+		solutions_list => 'Seznam odevdaných řešení',
+		solutions_no_solutions => 'Zatím žádná odevzdaná řešení',
+		solutions_date => 'Datum odevzdání',
+		solutions_status => 'Stav řešení',
+		solutions_points => 'Udělené body',
+		solutions_detail => 'Detail',
 
 		solution_title => 'Řešení úlohy',
 		solution_submit_new => 'Vložit nové řešení',
 		solution_submitted_solution => 'Odeslané řešení',
 		solution_submit_date => 'Datum odeslání',
 		solution_points => 'Body za řešení',
+		solution_status => 'Stav řešení',
 		solution_code => 'Kód řešení',
+		solution_back_to_task => 'Zpět na zadání úlohy',
 
 		comment_author => 'Autor',
 		comment_date => 'Datum',

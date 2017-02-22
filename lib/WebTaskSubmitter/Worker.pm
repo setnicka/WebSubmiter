@@ -1,7 +1,7 @@
 package WebTaskSubmitter::Worker;
 
 use common::sense;
-use Digest::SHA qw/sha1_hex/;
+use Digest::SHA 'sha1_hex';
 use Email::Valid;
 use Text::Markdown 'markdown';
 
@@ -11,6 +11,7 @@ sub new {
 	my $class = shift;
 	my $self = {
 		Main => shift,
+		Model => shift,
 	};
 	bless $self, $class;
 	return $self;
@@ -25,15 +26,13 @@ sub manage_login() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
 	my $texts = $self->{Main}->{View}->{texts};
-	my $dbh = $self->{Main}->{dbh};
 
 	if (length $data->{login} && length $data->{passwd}) {
-		my $sth = $dbh->prepare('SELECT * FROM users WHERE login=?');
-		$sth->execute($data->{login});
-		if (my $row = $sth->fetchrow_hashref()) {
-			my $hash = sha1_hex($row->{salt}, $data->{passwd});
-			if ($row->{passwd} eq $hash) {
-				$self->{Main}->login('user', $row->{uid}, $row->{name});
+		my $user = $self->{Model}->get_user_by_login($data->{login});
+		if (defined $user) {
+			my $hash = sha1_hex($user->{salt}, $data->{passwd});
+			if ($user->{passwd} eq $hash) {
+				$self->{Main}->login($data->{login}, $user->{uid}, $user->{name});
 			}
 		}
 		$self->{Main}->{errors}->{login} = $texts->{error_login_failed};
@@ -44,13 +43,12 @@ sub registration_check() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
 	my $texts = $self->{Main}->{View}->{texts};
-	my $dbh = $self->{Main}->{dbh};
 
 	my $errors = {};
 
-	my $sth = $dbh->prepare('SELECT * FROM users WHERE login=?');
-	$sth->execute($data->{login});
-	$errors->{login} = $texts->{error_login_used} if ($sth->fetchrow_array);
+	my $user = $self->{Model}->get_user_by_login($data->{login});
+
+	$errors->{login} = $texts->{error_login_used} if defined $user;
 	$errors->{login} = $texts->{error_login_empty} unless length($data->{login});
 
 	$errors->{passwd} = sprintf($texts->{error_passwd_min_length}, 5) if length($data->{passwd}) < 5;
@@ -67,17 +65,11 @@ sub manage_registration() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
 	my $texts = $self->{Main}->{View}->{texts};
-	my $dbh = $self->{Main}->{dbh};
 
 	return unless length($data->{login});
 	return unless $self->registration_check();
 
-	my @chars = ("A".."Z", "a".."z", 0..9);
-	my $salt;
-	$salt .= $chars[rand @chars] for 1..8;
-	my $salted_passwd = sha1_hex($salt, $data->{passwd});
-	my $sth = $dbh->prepare('INSERT INTO users(login,passwd,salt,name,email) VALUES(?,?,?,?,?)');
-	$sth->execute($data->{login}, $salted_passwd, $salt, $data->{name}, $data->{email});
+	$self->{Model}->register_new_user($data);
 
 	$self->{Main}->{status} = 'registration_completed';
 }
@@ -88,30 +80,13 @@ sub manage_logout() {
 	$self->{Main}->logout();
 }
 
-sub get_task() {
-	my $self = shift;
-	my $code = shift;
-	my $taskdb = $self->{Main}->{tasks};
-
-	return undef unless defined $taskdb->{tasks}->{$code};
-
-	my $task = $taskdb->{tasks}->{$code};
-	my @enabled = grep($_->{task} eq $code, @{$taskdb->{enabled_tasks}});
-
-	$task->{enabled} = (scalar @enabled);
-	$task->{deadline} = @enabled[0]->{deadline} if $task->{enabled};
-	$task->{max_points} = @enabled[0]->{max_points} if $task->{enabled};
-
-	return $task;
-}
-
 sub manage_task() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
 	my $taskdb = $self->{Main}->{tasks};
 	my $dbh = $self->{Main}->{dbh};
 
-	my $task = $self->get_task($data->{code});
+	my $task = $self->{Model}->get_task($data->{code});
 	# Check if task exists...
 	$self->{Main}->redirect('tasklist') unless $task;
 	# ... and is enabled
@@ -132,33 +107,13 @@ sub manage_task() {
 	}
 }
 
-sub get_solution() {
-	my $self = shift;
-	my $sid = shift;
-	my $dbh = $self->{Main}->{dbh};
-
-	my $sth = $dbh->prepare('SELECT * FROM solutions WHERE sid=?');
-	$sth->execute($sid);
-	return $sth->fetchrow_hashref();
-}
-
-sub get_all_comments() {
-	my $self = shift;
-	my $sid = shift;
-	my $dbh = $self->{Main}->{dbh};
-
-	my $sth = $dbh->prepare('SELECT * FROM comments WHERE sid=?');
-	$sth->execute($sid);
-	return $sth->fetchall_hashref('cid');
-}
-
 sub manage_solution() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
 	my $dbh = $self->{Main}->{dbh};
 	my $user = $self->{Main}->{user};
 
-	my $row = $self->get_solution($data->{sid});
+	my $row = $self->{Model}->get_solution($data->{sid});
 	$self->{Main}->redirect('tasklist') unless ($row);
 	# Test if logged in user (or teacher)
 	$self->{Main}->redirect('tasklist') unless ($user->{type} eq 'teacher' || $row->{uid} == $user->{uid});

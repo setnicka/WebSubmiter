@@ -6,6 +6,7 @@ use UCW::CGI;
 use DBI;
 use Digest::SHA qw/sha1_hex/;
 
+use WebTaskSubmitter::Model;
 use WebTaskSubmitter::Worker;
 use WebTaskSubmitter::View;
 
@@ -43,13 +44,12 @@ sub redirect() {
 
 # Method to create login cookie and send it to the client
 sub login() {
-	my ($self, $type, $uid, $name) = @_;
+	my ($self, $login, $uid, $name) = @_;
 	my $login_time = time();
-	if ($type eq 'teacher') {
-		$uid = -1;
-	} else {
-		$type = 'user';
-	}
+
+	my $type = 'user';
+	$type = 'teacher' if $login ~~ @{$self->{options}->{teacher_accounts}};
+
 	my $cookie_value = sprintf '%s:%d:%d:%s:%s', $type, $uid, $login_time, sha1_hex($self->{options}->{auth_cookie_secret}, $type, $uid, $login_time, $name), $name;
 	UCW::CGI::set_cookie(LOGIN_COOKIE_NAME, $cookie_value, ('max-age' => LOGIN_COOKIE_MAX_AGE));
 	$self->redirect(DEFAULT_PAGE);
@@ -68,13 +68,10 @@ sub check_login() {
 	if (defined $cookies{(LOGIN_COOKIE_NAME)}) {
 		my ($type, $uid, $login_time, $hash, $name) = split(/:/, $cookies{(LOGIN_COOKIE_NAME)}, 5);
 		return 0 if (time() - $login_time) > LOGIN_COOKIE_MAX_AGE;
-		if ($type eq 'user' && $hash eq sha1_hex($self->{options}->{auth_cookie_secret}, 'user', $uid, $login_time, $name)) {
+		return 0 unless $type eq 'user' || $type eq 'teacher';
+		if ($hash eq sha1_hex($self->{options}->{auth_cookie_secret}, $type, $uid, $login_time, $name)) {
 			utf8::decode($name);
-			$self->{user} = {type => 'user', uid => $uid, name => $name};
-			return 1;
-		} elsif ($type eq 'teacher' && sha1_hex($self->{options}->{auth_cookie_secret}, 'teacher', $uid, $login_time, $name)) {
-			utf8::decode($name);
-			$self->{user} = {type => 'teacher', name => $name};
+			$self->{user} = {type => $type, uid => $uid, name => $name};
 			return 1;
 		}
 	}
@@ -87,8 +84,9 @@ sub process($) {
 	my $self = shift;
 
 	# Init Worker and View
-	$self->{Worker} = new WebTaskSubmitter::Worker($self);
-	$self->{View} = new WebTaskSubmitter::View($self, $self->{Worker});
+	$self->{Model} = new WebTaskSubmitter::Model($self);
+	$self->{Worker} = new WebTaskSubmitter::Worker($self, $self->{Model});
+	$self->{View} = new WebTaskSubmitter::View($self, $self->{Model}, $self->{Worker});
 
 	# Load tasks database
 	unless ($self->{tasks} = do "./$self->{options}->{tasks_file}") {
@@ -108,6 +106,7 @@ sub process($) {
 	my $data = {};
 	my $param_table = {
 		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|task|solution', default => DEFAULT_PAGE },
+		action		=> { var => \$data->{action}, check => 'new', default => '' },
 		code		=> { var => \$data->{code}, check => '\w+' },
 		# Login/registration related fields
 		login		=> { var => \$data->{login} },
@@ -193,6 +192,7 @@ sub process($) {
 		$self->{Worker}->manage_logout();
 	}
 
+
 	# 3) Tasks related stuff
 	$self->{Worker}->manage_task() if ($self->{page} eq 'task');
 	$self->{Worker}->manage_solution() if ($self->{page} eq 'solution');
@@ -211,8 +211,6 @@ sub render($) {
 		return $self->{View}->registration_page() if ($self->{page} eq 'registration');
 		return $self->{View}->teacher_login_page() if ($self->{page} eq 'teacher_login');
 		return $self->{View}->login_page();
-	} elsif ($self->{user}->{type} eq 'teacher') {
-		# TODO
 	} else {
 		return $self->{View}->task_page() if ($self->{page} eq 'task');
 		return $self->{View}->solution_page() if ($self->{page} eq 'solution');

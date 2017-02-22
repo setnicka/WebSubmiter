@@ -12,8 +12,8 @@ use WebTaskSubmitter;
 
 # Configuration for WebTaskSubmitter:
 my $webTaskSubmitter = new WebTaskSubmitter({
-	teacher_name => "Reginald Barclay", # name to display in discussion and etc
-	teacher_passwd => "myTestPassword",
+	teacher_accounts => ['setnicka'], # usernames of teachers
+	# Use only existing accounts. You have to log out and log in again to apply new roles.
 
 	db_file => "data/webtaskdb.sqlite",
 	tasks_file => "data/tasks.pl",
