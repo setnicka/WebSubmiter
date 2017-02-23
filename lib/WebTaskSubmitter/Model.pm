@@ -119,17 +119,22 @@ sub get_all_solutions() {
 	my ($self, $uid, $task) = @_;
 	my $dbh = $self->{Main}->{dbh};
 
-	my $sth;
+	my @values = ();
+	my $where_sql = '';
 	if (defined $task && defined $uid) {
-		$sth = $dbh->prepare('SELECT * FROM solutions LEFT JOIN users USING(uid) WHERE uid=? AND task=?');
-		$sth->execute($uid, $task);
+		$where_sql = 'WHERE uid=? AND task=?';
+		@values = ($uid, $task);
 	} elsif (defined $uid) {
-		$sth = $dbh->prepare('SELECT * FROM solutions LEFT JOIN users USING(uid) WHERE uid=?');
-		$sth->execute($uid);
+		$where_sql = 'WHERE uid=?';
+		@values = ($uid);
 	} elsif (defined $task) {
-		$sth = $dbh->prepare('SELECT * FROM solutions LEFT JOIN users USING(uid) WHERE task=?');
-		$sth->execute($task);
+		$where_sql = 'WHERE task=?';
+		@values = ($task);
 	}
+
+	my $sth = $dbh->prepare('SELECT *,datetime(date,"localtime") AS local_date FROM solutions LEFT JOIN users USING(uid) '.$where_sql);
+	$sth->execute(@values);
+
 	return $sth->fetchall_hashref(['uid', 'sid']);
 }
 
@@ -137,7 +142,7 @@ sub get_solution() {
 	my ($self, $sid) = @_;
 	my $dbh = $self->{Main}->{dbh};
 
-	my $sth = $dbh->prepare('SELECT * FROM solutions LEFT JOIN users USING(uid) WHERE sid=?');
+	my $sth = $dbh->prepare('SELECT *,datetime(date,"localtime") AS local_date FROM solutions LEFT JOIN users USING(uid) WHERE sid=?');
 	$sth->execute($sid);
 	return $sth->fetchrow_hashref();
 }
@@ -149,7 +154,7 @@ sub get_all_comments() {
 	my $sid = shift;
 	my $dbh = $self->{Main}->{dbh};
 
-	my $sth = $dbh->prepare('SELECT * FROM comments LEFT JOIN users USING(uid) WHERE sid=?');
+	my $sth = $dbh->prepare('SELECT *,datetime(date,"localtime") AS local_date FROM comments LEFT JOIN users USING(uid) WHERE sid=?');
 	$sth->execute($sid);
 	return $sth->fetchall_hashref('cid');
 }

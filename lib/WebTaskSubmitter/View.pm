@@ -226,7 +226,7 @@ sub task_page() {
 
 				$out .= "<tr class='$class'>";
 				$out .= sprintf "<td>%s</td>", html_escape($solution->{name}) if $user->{type} eq 'teacher';
-				$out .= "<td>$solution->{date}</td><td>$status</td><td>$solution->{points} / $task->{max_points}</td>";
+				$out .= "<td>$solution->{local_date}</td><td>$status</td><td>$solution->{points} / $task->{max_points}</td>";
 				$out .= sprintf "<td><a href='%s'>$texts->{solutions_detail}</a></td></tr>\n", $self->get_url('solution', {sid => $solution->{sid}});
 			}
 
@@ -301,7 +301,7 @@ sub solution_page() {
 	$out .= "<hr><h3>$texts->{solution_submitted_solution}</h3>\n";
 	$out .= sprintf "<strong>$texts->{solution_author}:</strong> %s &lt;<a href='mailto:%s'>%s</a>&gt;<br>\n",
 		html_escape($solution->{name}), html_escape($solution->{email}), html_escape($solution->{email}) if $user->{type} eq 'teacher';
-	$out .= "<strong>$texts->{solution_submit_date}:</strong> $solution->{date}<br>\n";
+	$out .= "<strong>$texts->{solution_submit_date}:</strong> $solution->{local_date}<br>\n";
 	$out .= "<strong>$texts->{solution_status}:</strong> $status<br>\n";
 	$out .= "<strong>$texts->{solution_points}:</strong> <strong>$solution->{points}</strong> / $task->{max_points}<br>\n";
 	$out .= sprintf "<div class='solution_code'><textarea disabled class='form-control' id='solution_code'>%s</textarea></div>\n\n", html_escape($solution->{code});
@@ -333,7 +333,7 @@ sub solution_page() {
 		$author .= " ($texts->{comment_teacher})" if $comment->{teacher};
 
 		$out .= "<div class='comment$teacher_class'>\n";
-		$out .= "<span class='date'>$comment->{date}</span><span class='author'>$texts->{comment_author}: <strong>$author</strong></span>\n";
+		$out .= "<span class='date'>$comment->{local_date}</span><span class='author'>$texts->{comment_author}: <strong>$author</strong></span>\n";
 		$out .= $comment->{html};
 		$out .= "</div>\n";
 	}

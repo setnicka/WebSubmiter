@@ -15,12 +15,12 @@ my $webTaskSubmitter = new WebTaskSubmitter({
 	teacher_accounts => ['setnicka'], # usernames of teachers
 	# Use only existing accounts. You have to log out and log in again to apply new roles.
 
-	db_file => "data/webtaskdb.sqlite",
+	db_file => "data/webtaskdb.sqlite", # WARNING: the directory with SQLite DB file must be writable by sqlite process (chmod this directory)
 	tasks_file => "data/tasks.pl",
 	auth_cookie_secret => "someTotallyRandomSecretString", # Change it to YOUR secret string, used to hash login cookies
 
-	date_format_deadline => "%H:%M %d.%m.%Y",
-	date_format_submits => "%H:%M:%S %d.%m.%Y",
+	# date_format_deadline => "%H:%M %d.%m.%Y",  # Not used yet
+	# date_format_submits => "%H:%M:%S %d.%m.%Y",  # Not used yet
 
 	css_path => "./css",
 	js_path => "./js",
