@@ -53,6 +53,7 @@ sub registration_check() {
 	$errors->{passwd} = sprintf($texts->{error_passwd_min_length}, 5) if length($data->{passwd}) < 5;
 	$errors->{passwd} = $texts->{error_passwd_mismatch} if $data->{passwd} ne $data->{passwd_check};
 	$errors->{name} = $texts->{error_name_empty} unless length($data->{name});
+	$errors->{nick} = $texts->{error_nick_empty} unless length($data->{nick});
 	$errors->{email} = $texts->{error_email_wrong} unless Email::Valid->address($data->{email});
 
 	$self->{Main}->{errors} = $errors;
@@ -112,7 +113,7 @@ sub manage_solution() {
 	my $row = $self->{Model}->get_solution($data->{sid});
 	$self->{Main}->redirect('tasklist') unless ($row);
 	# Test if logged in user (or teacher)
-	$self->{Main}->redirect('tasklist') unless ($user->{type} eq 'teacher' || $row->{uid} == $user->{uid});
+	$self->{Main}->redirect('tasklist') unless ($user->{teacher} || $row->{uid} == $user->{uid});
 
 	# If there is comment submitted
 	if (length($data->{solution_comment})) {
@@ -120,12 +121,19 @@ sub manage_solution() {
 		$self->{Main}->redirect('solution', {sid => $data->{sid}});
 	}
 
-	if ($user->{type} eq 'teacher' && length($data->{set_points})) {
+	if ($user->{teacher} && length($data->{set_points})) {
 		my $sth = $dbh->prepare('UPDATE solutions SET points=?, rated=? WHERE sid=?');
 		$sth->execute($data->{set_points}, ($data->{set_status} eq 'rated'), $data->{sid});
 
 		$self->{Main}->redirect('solution', {sid => $data->{sid}});
 	}
+}
+
+sub manage_usertable() {
+	my $self = shift;
+	my $user = $self->{Main}->{user};
+
+	$self->{Main}->redirect('tasklist') unless $user->{teacher} || $self->{Main}->{options}->{usertable_for_students};
 }
 
 1;

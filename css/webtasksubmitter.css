@@ -51,3 +51,5 @@ table.tasklist tr.missed.not_submitted { background-color: red; color: #dddddd; 
 table.tasklist tr.full_points, table.solutions tr.full_points { background-color: #88FF56 }
 table.tasklist tr.part_points, table.solutions tr.part_points { background-color: #C5FAAF }
 table.tasklist tr.waiting, table.solutions tr.waiting { background-color: #FCB675; }
+
+table.usertable th.vertical { writing-mode: tb-rl; }

@@ -21,6 +21,7 @@ my $webTaskSubmitter = new WebTaskSubmitter({
 
 	# date_format_deadline => "%H:%M %d.%m.%Y",  # Not used yet
 	# date_format_submits => "%H:%M:%S %d.%m.%Y",  # Not used yet
+	usertable_for_students => 1,  # If student could see table with other students and points
 
 	css_path => "./css",
 	js_path => "./js",

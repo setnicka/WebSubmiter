@@ -41,8 +41,8 @@ sub register_new_user() {
 	my $salt;
 	$salt .= $chars[rand @chars] for 1..8;
 	my $salted_passwd = sha1_hex($salt, $data->{passwd});
-	my $sth = $dbh->prepare('INSERT INTO users(login,passwd,salt,name,email) VALUES(?,?,?,?,?)');
-	return $sth->execute($data->{login}, $salted_passwd, $salt, $data->{name}, $data->{email});
+	my $sth = $dbh->prepare('INSERT INTO users(login,passwd,salt,name,nick,email) VALUES(?,?,?,?,?,?)');
+	return $sth->execute($data->{login}, $salted_passwd, $salt, $data->{name}, $data->{nick}, $data->{email});
 }
 
 #### TASKS (not in SQLite) #####################################################
@@ -89,6 +89,24 @@ sub get_task() {
 
 	return $task;
 }
+
+
+#### STUDENTS ##################################################################
+
+sub get_students() {
+	my $self = shift;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare("SELECT * FROM users ORDER BY name");
+	$sth->execute();
+
+	my @rows;
+	while (my $row = $sth->fetchrow_hashref) {
+		push @rows, $row unless ($row->{login} ~~ @{$self->{Main}->{options}->{teacher_accounts}});
+	}
+	return @rows;
+}
+
 
 #### SOLUTIONS #################################################################
 
@@ -138,6 +156,15 @@ sub get_all_solutions() {
 	return $sth->fetchall_hashref(['uid', 'sid']);
 }
 
+sub get_all_solutions_grouped() {
+	my $self = shift;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('SELECT uid, task, COUNT(*) AS total, SUM(rated) AS rated, MAX(points) AS max_points FROM solutions GROUP BY uid,task');
+	$sth->execute();
+	return $sth->fetchall_hashref(['uid','task']);
+}
+
 sub get_solution() {
 	my ($self, $sid) = @_;
 	my $dbh = $self->{Main}->{dbh};
@@ -167,7 +194,7 @@ sub add_comment() {
 	my $html = markdown($comment);
 
 	my $sth = $dbh->prepare('INSERT INTO comments(sid, uid, teacher, text, html, date) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)');
-	$sth->execute($sid, $user->{uid}, ($user->{type} eq 'teacher'), $comment, $html);
+	$sth->execute($sid, $user->{uid}, ($user->{teacher}), $comment, $html);
 }
 
 1;

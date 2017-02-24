@@ -73,7 +73,7 @@ sub check_login() {
 		return 0 unless $type eq 'user' || $type eq 'teacher';
 		if ($hash eq sha1_hex($self->{options}->{auth_cookie_secret}, $type, $uid, $login_time, $name)) {
 			utf8::decode($name);
-			$self->{user} = {type => $type, uid => $uid, name => $name};
+			$self->{user} = {type => $type, uid => $uid, name => $name, teacher => ($type eq 'teacher')};
 			return 1;
 		}
 	}
@@ -107,7 +107,7 @@ sub process($) {
 	# Parse arguments from submitted form (if there are some)
 	my $data = {};
 	my $param_table = {
-		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|task|solution', default => DEFAULT_PAGE },
+		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|usertable|task|solution', default => DEFAULT_PAGE },
 		action		=> { var => \$data->{action}, check => 'new', default => '' },
 		code		=> { var => \$data->{code}, check => '\w+' },
 		# Login/registration related fields
@@ -115,6 +115,7 @@ sub process($) {
 		passwd		=> { var => \$data->{passwd} },
 		passwd_check	=> { var => \$data->{passwd_check} },
 		name		=> { var => \$data->{name} },
+		nick		=> { var => \$data->{nick} },
 		email		=> { var => \$data->{email} },
 		# Solutions related fields
 		sid		=> { var => \$data->{sid}, check => '\d+', default => 0},
@@ -151,8 +152,9 @@ sub process($) {
 
 
 	# 3) Tasks related stuff
-	$self->{Worker}->manage_task() if ($self->{page} eq 'task');
-	$self->{Worker}->manage_solution() if ($self->{page} eq 'solution');
+	$self->{Worker}->manage_task() if $self->{page} eq 'task';
+	$self->{Worker}->manage_solution() if $self->{page} eq 'solution';
+	$self->{Worker}->manage_usertable() if $self->{page} eq 'usertable';
 
 	$self->{processed} = 1;
 }
@@ -171,6 +173,7 @@ sub render($) {
 	} else {
 		return $self->{View}->task_page() if ($self->{page} eq 'task');
 		return $self->{View}->solution_page() if ($self->{page} eq 'solution');
+		return $self->{View}->usertable_page() if ($self->{page} eq 'usertable');
 		return $self->{View}->tasklist_page();
 	}
 }

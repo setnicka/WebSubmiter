@@ -58,7 +58,7 @@ sub print_login_line() {
 	my $self = shift;
 	my $texts = $self->{texts};
 
-	my $text = $self->{Main}->{user}->{type} eq 'teacher' ? $texts->{logged_in_teacher} : $texts->{logged_in_as};
+	my $text = $self->{Main}->{user}->{teacher} ? $texts->{logged_in_teacher} : $texts->{logged_in_as};
 	return sprintf "<div class='login_line'>$text <strong>%s</strong> <a href='%s'>[$texts->{logout}]</a></div>\n", $self->{Main}->{user}->{name}, $self->get_url('logout');
 }
 
@@ -103,6 +103,7 @@ sub registration_page() {
 		$out .= "<tr><th>$texts->{form_password}:</th><td><input type='password' name='passwd'></td></tr>\n";
 		$out .= "<tr><th>$texts->{form_password_check}:</th><td><input type='password' name='passwd_check'></td></tr>\n";
 		$out .= sprintf "<tr><th>$texts->{form_name}:</th><td><input type='text' name='name' value='%s'></td></tr>\n", html_escape($data->{name});
+		$out .= sprintf "<tr><th>$texts->{form_nick}:</th><td><input type='text' name='nick' value='%s'></td></tr>\n", html_escape($data->{nick});
 		$out .= sprintf "<tr><th>$texts->{form_email}:</th><td><input type='text' name='email' value='%s'></td></tr>\n", , html_escape($data->{email});
 		$out .= "<tr><th colspan='2'><input type='submit' class='btn btn-primary' value='$texts->{form_submit_registrate}'></th></tr>\n";
 		$out .= "</table></form>\n";
@@ -118,11 +119,13 @@ sub tasklist_page() {
 	$self->{title} = $texts->{tasklist_title};
 
 	my $out = $self->print_login_line();
+	$out .= sprintf("<a href='%s'>&rarr; $texts->{usertable_title}</a>", $self->get_url('usertable')) if $user->{teacher} || $self->{Main}->{options}->{usertable_for_students};
+
 	$out .= "<p>$texts->{tasklist_intro}</p>\n";
 
 	$out .= "<table class='tasklist table table-striped table-bordered'><thead>\n<tr>";
 		$out .= "<th>$texts->{tasklist_task_name}</th>";
-		if ($user->{type} eq 'teacher') {
+		if ($user->{teacher}) {
 			$out .= "<th>$texts->{tasklist_solutions_unrated}</th>";
 			$out .= "<th>$texts->{tasklist_solutions}</th>";
 		} else {
@@ -133,7 +136,7 @@ sub tasklist_page() {
 		$out .= "<th>$texts->{tasklist_short_desc}</th>";
 	$out .= "</tr>\n</thead><tbody>\n";
 
-	my @tasks = $self->{Model}->get_enabled_tasks($user->{type} eq 'teacher' ? undef : $user->{uid});
+	my @tasks = $self->{Model}->get_enabled_tasks($user->{teacher} ? undef : $user->{uid});
 
 	foreach my $task (@tasks) {
 		my $deadline = str2time($task->{deadline});
@@ -159,7 +162,7 @@ sub tasklist_page() {
 
 		$out .= "<tr class='$classes'>";
 		$out .= sprintf "<th><a href='%s'>$task->{name}</a></th>", $self->get_url('task', {code => $task->{code}});
-		if ($user->{type} eq 'teacher') {
+		if ($user->{teacher}) {
 			$out .= sprintf "<th><a href='%s'>%s</a></th>", $self->get_url('task', {code => $task->{code}}), $task->{count_solutions} - $task->{count_solutions_rated};
 			$out .= "<th>$task->{count_solutions}</th>";
 		} else {
@@ -183,9 +186,9 @@ sub task_page() {
 	my $user = $self->{Main}->{user};
 
 	my $task = $self->{Model}->get_task($data->{code});
-	my $counts = $self->{Model}->get_solution_counts($user->{type} eq 'teacher' ? undef : $user->{uid}, $data->{code})->{$data->{code}};
+	my $counts = $self->{Model}->get_solution_counts($user->{teacher} ? undef : $user->{uid}, $data->{code})->{$data->{code}};
 
-	my $all_solutions = $self->{Model}->get_all_solutions($user->{type} eq 'teacher' ? undef : $user->{uid}, $data->{code});
+	my $all_solutions = $self->{Model}->get_all_solutions($user->{teacher} ? undef : $user->{uid}, $data->{code});
 
 	#################
 	$self->{title} = "$texts->{task_title} $task->{name}";
@@ -194,7 +197,7 @@ sub task_page() {
 	$out .= sprintf "<a href='%s'>$texts->{task_back_to_tasklist}</a><br>\n", $self->get_url('tasklist');
 
 	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
-	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n" unless $user->{type} eq 'teacher';
+	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n" unless $user->{teacher};
 	$out .= "<strong>$texts->{task_description}:</strong><br>\n<div class='task_description'>\n";
 	$out .= $task->{text};
 	$out .= "\n</div>\n\n";
@@ -207,8 +210,8 @@ sub task_page() {
 		$out .= "<table class='solutions table table-stripped table-bordered'>";
 		for my $uid (sort { $a <=> $b } keys %$all_solutions) {
 			my $user_solutions = $all_solutions->{$uid};
-			$out .= "<thead>\n<tr>";
-				$out .= "<th>$texts->{solutions_user}</th>" if $user->{type} eq 'teacher';
+			$out .= "<thead id='user$uid'>\n<tr>";
+				$out .= "<th>$texts->{solutions_user}</th>" if $user->{teacher};
 				$out .= "<th>$texts->{solutions_date}</th>";
 				$out .= "<th>$texts->{solutions_status}</th>";
 				$out .= "<th>$texts->{solutions_points}</th>";
@@ -225,7 +228,7 @@ sub task_page() {
 				my $status = $solution->{rated} ? $texts->{status_rated} : $texts->{status_submitted};
 
 				$out .= "<tr class='$class'>";
-				$out .= sprintf "<td>%s</td>", html_escape($solution->{name}) if $user->{type} eq 'teacher';
+				$out .= sprintf "<td>%s</td>", html_escape($solution->{name}) if $user->{teacher};
 				$out .= "<td>$solution->{local_date}</td><td>$status</td><td>$solution->{points} / $task->{max_points}</td>";
 				$out .= sprintf "<td><a href='%s'>$texts->{solutions_detail}</a></td></tr>\n", $self->get_url('solution', {sid => $solution->{sid}});
 			}
@@ -280,7 +283,7 @@ sub solution_page() {
 
 	my $solution = $self->{Model}->get_solution($data->{sid});
 	my $task = $self->{Model}->get_task($solution->{task});
-	my $counts = $self->{Model}->get_solution_counts($user->{type} eq 'teacher' ? undef : $user->{uid}, $solution->{task})->{$solution->{task}};
+	my $counts = $self->{Model}->get_solution_counts($user->{teacher} ? undef : $user->{uid}, $solution->{task})->{$solution->{task}};
 	utf8::decode($solution->{code});
 	utf8::decode($solution->{name});
 
@@ -291,7 +294,7 @@ sub solution_page() {
 	$out .= sprintf "<a href='%s'>$texts->{task_back_to_tasklist}</a> | <a href='%s'>$texts->{solution_back_to_task}</a><br>\n", $self->get_url('tasklist'), $self->get_url('task', {code => $solution->{task}});
 
 	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
-	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n" unless $user->{type} eq 'teacher';
+	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n" unless $user->{teacher};
 	$out .= "<strong>$texts->{task_description}:</strong><br>\n<div class='task_description'>\n";
 	$out .= $task->{text};
 	$out .= "\n</div>\n\n";
@@ -300,7 +303,7 @@ sub solution_page() {
 
 	$out .= "<hr><h3>$texts->{solution_submitted_solution}</h3>\n";
 	$out .= sprintf "<strong>$texts->{solution_author}:</strong> %s &lt;<a href='mailto:%s'>%s</a>&gt;<br>\n",
-		html_escape($solution->{name}), html_escape($solution->{email}), html_escape($solution->{email}) if $user->{type} eq 'teacher';
+		html_escape($solution->{name}), html_escape($solution->{email}), html_escape($solution->{email}) if $user->{teacher};
 	$out .= "<strong>$texts->{solution_submit_date}:</strong> $solution->{local_date}<br>\n";
 	$out .= "<strong>$texts->{solution_status}:</strong> $status<br>\n";
 	$out .= "<strong>$texts->{solution_points}:</strong> <strong>$solution->{points}</strong> / $task->{max_points}<br>\n";
@@ -345,7 +348,7 @@ sub solution_page() {
 	$out .= "</form>\n";
 	$out .= $self->get_epiceditor();
 
-	return $out unless $user->{type} eq 'teacher';
+	return $out unless $user->{teacher};
 
 	$out .= "<hr><form class='form-inline' method='post'>\n";
 	$out .= "<div class='form-group'>\n<label for='set_points'>$texts->{form_set_points}:</label>\n";
@@ -396,6 +399,50 @@ sub get_epiceditor() {
 	document.getElementById('solution_comment').style.display='none';\n</script>\n"
 }
 
+sub usertable_page() {
+	my $self = shift;
+	my $texts = $self->{texts};
+	my $user = $self->{Main}->{user};
+
+	$self->{title} = $texts->{usertable_title};
+
+	my @tasks = $self->{Model}->get_enabled_tasks();
+	my @students = $self->{Model}->get_students();
+	my $all_solutions = $self->{Model}->get_all_solutions_grouped();
+
+	my $out = $self->print_login_line();
+	$out .= sprintf "<a href='%s'>&rarr; $texts->{tasklist_title}</a>", $self->get_url('tasklist');
+
+	$out .= "<table class='usertable table table-bordered'><thead>\n<tr><th>$texts->{usertable_student}</th>";
+	for my $task (@tasks) {
+		$out .= sprintf "<th class='vertical'><a href='%s'>$task->{name}</a></th>", $self->get_url('task', {code => $task->{code}});
+	}
+	$out .= "<th>$texts->{usertable_sum}</th></tr>\n</thead><tbody>\n";
+	for my $student (@students) {
+		utf8::decode($student->{name});
+		utf8::decode($student->{nick});
+
+		my $grouped_solutions = $all_solutions->{$student->{uid}};
+		my $sum = 0;
+
+		$out .= sprintf("<tr><th>%s (%s)</th>", html_escape($student->{name}), html_escape($student->{nick})) if $user->{teacher};
+		$out .= sprintf("<tr><th>%s</th>", html_escape($student->{nick})) unless $user->{teacher};
+
+		for my $task (@tasks) {
+			my $max_points = $grouped_solutions->{$task->{code}}->{max_points};
+			$sum += $max_points;
+			$max_points = '-' unless length($max_points);
+			$out .= "<td>$max_points</td>" unless $user->{teacher};
+			$out .= sprintf("<td><a href='%s#user$student->{uid}'>$max_points</a></td>", $self->get_url('task', {code => $task->{code}})) if $user->{teacher};
+		}
+		$out .= "<th>$sum</th></tr>\n";
+	}
+	$out .= "</tbody>\n</table>\n";
+
+	return $out;
+}
+
+
 sub default_texts() {
 	return {
 		logged_in_as => 'Přihlášen jako',
@@ -409,7 +456,8 @@ sub default_texts() {
 		form_login => 'Login',
 		form_password => 'Heslo',
 		form_password_check => 'Heslo pro kontrolu',
-		form_name => 'Name',
+		form_name => 'Jméno a příjmení',
+		form_nick => 'Přezdívka',
 		form_email => 'Email',
 		form_solution_code => 'Kód řešení',
 		form_comment => 'Komentář',
@@ -433,6 +481,7 @@ sub default_texts() {
 		error_passwd_min_length => 'Minimální délka hesla je %d',
 		error_passwd_mismatch => 'Hesla se neshodují',
 		error_name_empty => 'Jméno nemůže být prázdné',
+		error_nick_empty => 'Přezdívka nemůže být prázdná',
 		error_email_wrong => 'Email není ve správném formátu',
 
 		################################################################
@@ -443,7 +492,8 @@ sub default_texts() {
 		login_registrate => 'registrovat',
 
 		registration_title => 'Vytvoření nového účtu',
-		registration_intro => 'Pro vytvoření nového účtu a možnost odevzdávání úkolů vyplňte formulář níže. Pokud již máte účet, můžete se',
+		registration_intro => 'Pro vytvoření nového účtu a možnost odevzdávání úkolů vyplňte formulář níže. Přezdívka se použije při zobrazení vašeho jména
+		ostatním studentům (učitel vidí celé jméno). Pokud již máte účet, můžete se',
 		registration_login => 'přihlásit',
 		registration_completed => 'Registrace úspěšná, nyní se můžete',
 
@@ -482,7 +532,11 @@ sub default_texts() {
 
 		comment_author => 'Autor',
 		comment_date => 'Datum',
-		comment_teacher => 'učitel'
+		comment_teacher => 'učitel',
+
+		usertable_title => 'Tabulka bodů',
+		usertable_student => 'Student',
+		usertable_sum => 'Součet',
 	}
 }
 
