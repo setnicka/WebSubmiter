@@ -1,0 +1,12 @@
+# Redirect to https
+# This works with Apache 2.4 (and maybe other versions)
+# Uncomment this section if you want to redirect users from http to https
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [R=301,L]
+
+# Disallow subdirectories
+# You should chmod go-rwx data anyway
+RewriteRule ^data/ "-" [F]
+RewriteRule ^lib/ "-" [F]
+RewriteRule ^.htaccess "-" [F]
