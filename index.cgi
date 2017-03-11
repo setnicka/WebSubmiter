@@ -23,6 +23,10 @@ my $webTaskSubmitter = new WebTaskSubmitter({
 	# date_format_submits => "%H:%M:%S %d.%m.%Y",  # Not used yet
 	usertable_for_students => 1,  # If student could see table with other students and points
 
+	emails_enabled => 1,
+	emails_immediate => 0,  # Send emails immediate after change (otherwise send all notifications at once when teacher press "send emails" button)
+	emails_from => 'WebTaskSubmitter <test@test.test>',
+
 	css_path => "./css",
 	js_path => "./js",
 	script_url => "" # URL used in module would be created as <script_url>?page=tasklist... (for index.cgi is value "" the best option)

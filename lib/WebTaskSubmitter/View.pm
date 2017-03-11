@@ -59,7 +59,14 @@ sub print_login_line() {
 	my $texts = $self->{texts};
 
 	my $text = $self->{Main}->{user}->{teacher} ? $texts->{logged_in_teacher} : $texts->{logged_in_as};
-	return sprintf "<div class='login_line'>$text <strong>%s</strong> <a href='%s'>[$texts->{logout}]</a></div>\n", $self->{Main}->{user}->{name}, $self->get_url('logout');
+
+	my $special = '';
+	if ($self->{Main}->{user}->{teacher}) {
+		my $not_sended_notifications = $self->{Model}->get_not_sended_notifications_count();
+		$special = "<form method='post'><input type='submit' name='send_notifications' class='btn btn-warning btn-xs' value='$texts->{send_notifications} ($not_sended_notifications)'></form>" if $not_sended_notifications;
+	}
+
+	return sprintf "<div class='login_line'>%s $text <strong>%s</strong> <a href='%s'>[$texts->{logout}]</a></div>\n", $special, $self->{Main}->{user}->{name}, $self->get_url('logout');
 }
 
 ################################################################################
@@ -160,6 +167,9 @@ sub tasklist_page() {
 		}
 		my $classes = join(' ', @classes);
 
+		my $points = '-';
+		$points = $task->{points} if $task->{rated};
+
 		$out .= "<tr class='$classes'>";
 		$out .= sprintf "<th><a href='%s'>$task->{name}</a></th>", $self->get_url('task', {code => $task->{code}});
 		if ($user->{teacher}) {
@@ -167,7 +177,7 @@ sub tasklist_page() {
 			$out .= "<th>$task->{count_solutions}</th>";
 		} else {
 			$out .= "<th>$status</th>";
-			$out .= "<th>$task->{points} / $task->{max_points}</th>";
+			$out .= "<th>$points / $task->{max_points}</th>";
 		}
 		$out .= "<td>$task->{deadline}</td>";
 		$out .= "<td>$task->{short_desc}</td>";
@@ -240,6 +250,7 @@ sub task_page() {
 		$out .= "<i>$texts->{solutions_no_solutions}</i><br>\n";
 	}
 
+	return $out if $user->{teacher};  # Teachers cannot add new solutions
 	unless ($data->{action} eq 'new') {
 		$out .= sprintf "<a href='%s'>$texts->{solution_submit_new}</a>\n", $self->get_url('task', {code => $data->{code}, action => 'new'});
 		return $out;
@@ -471,6 +482,8 @@ sub default_texts() {
 		form_submit_registrate => 'Registrovat',
 		form_submit_add_comment => 'Přidat komentář',
 		form_submit_set => 'Nastav',
+
+		send_notifications => 'Odeslat dávkově upozornění studentům',
 
 		# Global handling:
 		errors_occured => 'Při zpracování formuláře se vyskytly chyby:',

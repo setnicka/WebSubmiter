@@ -69,11 +69,10 @@ sub get_enabled_tasks() {
 	return @tasks;
 }
 
-sub get_task() {
+sub get_task_simple() {
 	my $self = shift;
 	my $code = shift;
 	my $taskdb = $self->{Main}->{tasks};
-
 	return undef unless defined $taskdb->{tasks}->{$code};
 
 	my $task = $taskdb->{tasks}->{$code};
@@ -82,6 +81,17 @@ sub get_task() {
 	$task->{enabled} = (scalar @enabled);
 	$task->{deadline} = @enabled[0]->{deadline} if $task->{enabled};
 	$task->{max_points} = @enabled[0]->{max_points} if $task->{enabled};
+
+	return $task;
+}
+
+sub get_task() {
+	my $self = shift;
+	my $code = shift;
+	my $taskdb = $self->{Main}->{tasks};
+	return undef unless defined $taskdb->{tasks}->{$code};
+
+	my $task = $self->get_task_simple($code);
 
 	my $counts = $self->get_solution_counts(undef, $code);
 	$task->{count_solutions} = $counts->{$code}->{total} || 0;
@@ -174,11 +184,29 @@ sub get_solution() {
 	return $sth->fetchrow_hashref();
 }
 
+sub add_solution() {
+	my ($self, $task, $uid, $solution_code) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('INSERT INTO solutions(task, uid, code, date) VALUES(?,?,?,CURRENT_TIMESTAMP)');
+	$sth->execute($task, $uid, $solution_code);
+
+	my ($sid) = $dbh->selectrow_array('SELECT last_insert_rowid()');
+	return $sid;
+}
+
+sub solution_set_points() {
+	my ($self, $sid, $points, $rated) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('UPDATE solutions SET points=?, rated=? WHERE sid=?');
+	$sth->execute($points, $rated, $sid);
+}
+
 #### COMMENTS ##################################################################
 
 sub get_all_comments() {
-	my $self = shift;
-	my $sid = shift;
+	my ($self, $sid) = @_;
 	my $dbh = $self->{Main}->{dbh};
 
 	my $sth = $dbh->prepare('SELECT *,datetime(date,"localtime") AS local_date FROM comments LEFT JOIN users USING(uid) WHERE sid=?');
@@ -186,15 +214,68 @@ sub get_all_comments() {
 	return $sth->fetchall_hashref('cid');
 }
 
+sub get_comment() {
+	my ($self, $cid) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('SELECT *,datetime(date,"localtime") AS local_date FROM comments LEFT JOIN users USING(uid) WHERE cid=?');
+	$sth->execute($cid);
+	return $sth->fetchrow_hashref();
+}
+
 sub add_comment() {
-	my ($self, $sid, $comment) = @_;
-	my $user = $self->{Main}->{user};
+	my ($self, $sid, $user, $comment) = @_;
 	my $dbh = $self->{Main}->{dbh};
 
 	my $html = markdown($comment);
 
 	my $sth = $dbh->prepare('INSERT INTO comments(sid, uid, teacher, text, html, date) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)');
-	$sth->execute($sid, $user->{uid}, ($user->{teacher}), $comment, $html);
+	$sth->execute($sid, $user->{uid}, $user->{teacher}, $comment, $html);
+
+	my ($cid) = $dbh->selectrow_array('SELECT last_insert_rowid()');
+	return $cid;
+}
+
+#### NOTIFICATIONS #############################################################
+
+sub add_notification() {
+	my ($self, $type, $uid, $sid, $cid, $text, $sended) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sended_sql = 0;
+	$sended_sql = "CURRENT_TIMESTAMP" if $sended;
+
+	my $sth = $dbh->prepare("INSERT INTO notifications(type, uid, sid, cid, text, sended) VALUES (?,?,?,?,?,$sended_sql)");
+	$sth->execute($type, $uid, $sid, $cid, $text);
+
+	# Not used in this momment
+	# my ($cid) = $dbh->selectrow_array('SELECT last_insert_rowid()');
+	# return $cid;
+}
+
+sub get_not_sended_notifications_count() {
+	my $self = shift;
+	my $dbh = $self->{Main}->{dbh};
+
+	my ($count) = $dbh->selectrow_array('SELECT COUNT(*) FROM notifications WHERE sended=0');
+	return $count;
+}
+
+sub get_not_sended_notifications() {
+	my $self = shift;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('SELECT * FROM notifications WHERE sended=0');
+	$sth->execute();
+	return $sth->fetchall_hashref(['uid', 'sid', 'nid']);
+}
+
+sub set_notifications_sended() {
+	my ($self, $nid) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('UPDATE notifications SET sended=CURRENT_TIMESTAMP WHERE nid <= ?');
+	$sth->execute($nid);
 }
 
 1;

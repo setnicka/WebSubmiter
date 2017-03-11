@@ -6,11 +6,14 @@ use Email::Valid;
 
 use Data::Dumper;
 
+use WebTaskSubmitter::Email;
+
 sub new {
 	my $class = shift;
 	my $self = {
 		Main => shift,
 		Model => shift,
+		Email => shift,
 	};
 	bless $self, $class;
 	return $self;
@@ -84,7 +87,7 @@ sub manage_task() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
 	my $taskdb = $self->{Main}->{tasks};
-	my $dbh = $self->{Main}->{dbh};
+	my $user = $self->{Main}->{user};
 
 	my $task = $self->{Model}->get_task($data->{code});
 	# Check if task exists...
@@ -94,12 +97,8 @@ sub manage_task() {
 
 	# If there is solution submitted
 	if (length($data->{solution_code})) {
-		my $sth = $dbh->prepare('INSERT INTO solutions(task, uid, code, date) VALUES(?,?,?,CURRENT_TIMESTAMP) ');
-		$sth->execute($data->{code}, $self->{Main}->{user}->{uid}, $data->{solution_code});
-		my ($sid) = $dbh->selectrow_array('SELECT last_insert_rowid()');
-
-		$self->{Model}->add_comment($sid, $data->{solution_comment});
-
+		my $sid = $self->{Model}->add_solution($data->{code}, $user->{uid}, $data->{solution_code});
+		$self->{Model}->add_comment($sid, $user, $data->{solution_comment}) if length($data->{solution_comment});
 		$self->{Main}->redirect('solution', {sid => $sid});
 	}
 }
@@ -107,7 +106,6 @@ sub manage_task() {
 sub manage_solution() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
-	my $dbh = $self->{Main}->{dbh};
 	my $user = $self->{Main}->{user};
 
 	my $row = $self->{Model}->get_solution($data->{sid});
@@ -117,14 +115,20 @@ sub manage_solution() {
 
 	# If there is comment submitted
 	if (length($data->{solution_comment})) {
-		$self->{Model}->add_comment($data->{sid}, $data->{solution_comment});
+		my $cid = $self->{Model}->add_comment($data->{sid}, $user, $data->{solution_comment});
+
+		$self->{Email}->notify_comment($row->{uid}, $data->{sid}, $row->{task}, $cid, $data->{solution_comment}) if $user->{teacher};
 		$self->{Main}->redirect('solution', {sid => $data->{sid}});
 	}
 
 	if ($user->{teacher} && length($data->{set_points})) {
-		my $sth = $dbh->prepare('UPDATE solutions SET points=?, rated=? WHERE sid=?');
-		$sth->execute($data->{set_points}, ($data->{set_status} eq 'rated'), $data->{sid});
+		my $rated = ($data->{set_status} eq 'rated');
 
+		return if $row->{points} == $data->{set_points} && $row->{rated} == $rated;
+
+		$self->{Model}->solution_set_points($data->{sid}, $data->{set_points}, $rated);
+
+		$self->{Email}->notify_points_changed($row->{uid}, $data->{sid}, $row->{task}, $row, {points => $data->{set_points}, rated => $rated});
 		$self->{Main}->redirect('solution', {sid => $data->{sid}});
 	}
 }

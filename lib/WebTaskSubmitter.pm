@@ -87,7 +87,8 @@ sub process($) {
 
 	# Init Worker and View
 	$self->{Model} = new WebTaskSubmitter::Model($self);
-	$self->{Worker} = new WebTaskSubmitter::Worker($self, $self->{Model});
+	$self->{Email} = new WebTaskSubmitter::Email($self, $self->{Model});
+	$self->{Worker} = new WebTaskSubmitter::Worker($self, $self->{Model}, $self->{Email});
 	$self->{View} = new WebTaskSubmitter::View($self, $self->{Model}, $self->{Worker});
 
 	# Load tasks database
@@ -106,10 +107,12 @@ sub process($) {
 
 	# Parse arguments from submitted form (if there are some)
 	my $data = {};
+	my $send_notifications;
 	my $param_table = {
 		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|usertable|task|solution', default => DEFAULT_PAGE },
 		action		=> { var => \$data->{action}, check => 'new', default => '' },
 		code		=> { var => \$data->{code}, check => '\w+' },
+		send_notifications => { var => \$send_notifications },
 		# Login/registration related fields
 		login		=> { var => \$data->{login} },
 		passwd		=> { var => \$data->{passwd} },
@@ -150,8 +153,12 @@ sub process($) {
 		$self->{Worker}->manage_logout();
 	}
 
+	# 3) Notifications
+	if ($send_notifications) {
+		$self->{Email}->send_prepared_notifications();
+	}
 
-	# 3) Tasks related stuff
+	# 4) Tasks related stuff
 	$self->{Worker}->manage_task() if $self->{page} eq 'task';
 	$self->{Worker}->manage_solution() if $self->{page} eq 'solution';
 	$self->{Worker}->manage_usertable() if $self->{page} eq 'usertable';
