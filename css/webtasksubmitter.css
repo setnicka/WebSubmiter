@@ -53,3 +53,5 @@ table.tasklist tr.part_points, table.solutions tr.part_points { background-color
 table.tasklist tr.waiting, table.solutions tr.waiting { background-color: #FCB675; }
 
 table.usertable th.vertical { writing-mode: tb-rl; }
+
+table.solutions tr.highlight { font-weight: bold; }

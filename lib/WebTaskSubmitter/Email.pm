@@ -91,10 +91,11 @@ sub notify_points_changed() {
 	return if $old->{points} == $new->{points} && $old->{rated} == $new->{rated};
 
 	my $status_text = '';
-	$status_text .= sprintf " * %s: %d -> %d\n", $texts->{points_changed}, $old->{points}, $new->{points};
+	$status_text .= sprintf " * %s: %d -> %d\n", $texts->{points_changed}, $old->{points}, $new->{points} if $old->{points} != $new->{points};
 	$status_text .= sprintf " * %s: %s -> %s\n", $texts->{status_changed},
 		($old->{rated} ? $texts->{status_rated} : $texts->{status_not_rated}),
-		($new->{rated} ? $texts->{status_rated} : $texts->{status_not_rated});
+		($new->{rated} ? $texts->{status_rated} : $texts->{status_not_rated})
+		if $old->{rated} != $new->{rated};
 
 	my $sended = 0;
 	# Send email if immediate emails:
