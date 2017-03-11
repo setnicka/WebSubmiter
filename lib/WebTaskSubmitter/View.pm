@@ -168,7 +168,7 @@ sub tasklist_page() {
 		my $classes = join(' ', @classes);
 
 		my $points = '-';
-		$points = $task->{points} if $task->{rated};
+		$points = $task->{points} if $task->{points} > 0 || $task->{count_solutions_rated} > 0;
 
 		$out .= "<tr class='$classes'>";
 		$out .= sprintf "<th><a href='%s'>$task->{name}</a></th>", $self->get_url('task', {code => $task->{code}});
@@ -204,7 +204,7 @@ sub task_page() {
 	$self->{title} = "$texts->{task_title} $task->{name}";
 
 	my $out = $self->print_login_line();
-	$out .= sprintf "<a href='%s'>$texts->{task_back_to_tasklist}</a><br>\n", $self->get_url('tasklist');
+	$out .= sprintf "<a href='%s'>&larr; $texts->{task_back_to_tasklist}</a><br>\n", $self->get_url('tasklist');
 
 	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
 	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n" unless $user->{teacher};
@@ -302,7 +302,7 @@ sub solution_page() {
 	$self->{title} = "$texts->{solution_title} $task->{name}";
 
 	my $out = $self->print_login_line();
-	$out .= sprintf "<a href='%s'>$texts->{task_back_to_tasklist}</a> | <a href='%s'>$texts->{solution_back_to_task}</a><br>\n", $self->get_url('tasklist'), $self->get_url('task', {code => $solution->{task}});
+	$out .= sprintf "<a href='%s'>&larr; $texts->{task_back_to_tasklist}</a> | <a href='%s'>$texts->{solution_back_to_task}</a><br>\n", $self->get_url('tasklist'), $self->get_url('task', {code => $solution->{task}});
 
 	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
 	$out .= "<strong>$texts->{task_points}:</strong> <strong>$counts->{max_points}</strong> / $task->{max_points}<br>\n" unless $user->{teacher};
@@ -442,9 +442,16 @@ sub usertable_page() {
 		for my $task (@tasks) {
 			my $max_points = $grouped_solutions->{$task->{code}}->{max_points};
 			$sum += $max_points;
-			$max_points = '-' unless length($max_points);
-			$out .= "<td>$max_points</td>" unless $user->{teacher};
-			$out .= sprintf("<td><a href='%s#user$student->{uid}'>$max_points</a></td>", $self->get_url('task', {code => $task->{code}})) if $user->{teacher};
+			$max_points = '' unless length($max_points);
+			if ($max_points eq '') {
+				$out .= "<td></td>";
+			} elsif ($user->{uid} == $student->{uid}) {
+				$out .= sprintf("<td><a href='%s'>$max_points</a></td>", $self->get_url('task', {code => $task->{code}}));
+			} elsif ($user->{teacher}) {
+				$out .= sprintf("<td><a href='%s#user$student->{uid}'>$max_points</a></td>", $self->get_url('task', {code => $task->{code}}));
+			} else {
+				$out .= "<td>$max_points</td>";
+			}
 		}
 		$out .= "<th>$sum</th></tr>\n";
 	}
