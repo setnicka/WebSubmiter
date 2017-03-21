@@ -1,6 +1,10 @@
 use utf8;
-
 {
+bonuses => [
+	{bonus => 'activity', name => 'Aktivita v hodině'},
+	{bonus => 'other', name => 'Ostatní'},
+],
+
 # Enabled tasks, in this order they will be displayed
 enabled_tasks => [
 	{task => 'video_convert', max_points => 10, deadline => '2017-02-22 08:00'},

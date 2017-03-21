@@ -44,4 +44,12 @@ CREATE TABLE "notifications" (
   FOREIGN KEY ("cid") REFERENCES "comments" ("cid")
 );
 
+CREATE TABLE "bonus_points" (
+  "bonus" text NOT NULL,
+  "uid" integer NOT NULL,
+  "points" integer NOT NULL,
+  PRIMARY KEY ("bonus", "uid"),
+  FOREIGN KEY ("uid") REFERENCES "users" ("uid")
+);
+
 CREATE TABLE sqlite_sequence(name,seq);
