@@ -435,22 +435,35 @@ sub usertable_page() {
 	$self->{title} = $texts->{usertable_title};
 
 	my @tasks = $self->{Model}->get_enabled_tasks();
+	my $taskcount = scalar @tasks;
+	my @bonuses = $self->{Model}->get_bonuses();
+	my $bonuscount = scalar @bonuses;
 	my @students = $self->{Model}->get_students();
+
 	my $all_solutions = $self->{Model}->get_all_solutions_grouped();
+	my $all_bonus_points = $self->{Model}->get_bonus_points();
 
 	my $out = $self->print_login_line();
 	$out .= sprintf "<a href='%s'>&rarr; $texts->{tasklist_title}</a>", $self->get_url('tasklist');
+	$out .= sprintf ", <a href='%s'>&rarr; $texts->{bonustable_title}</a>", $self->get_url('bonustable') if $user->{teacher};
 
-	$out .= "<table class='usertable table table-bordered'><thead>\n<tr><th>$texts->{usertable_student}</th>";
+	$out .= "<table class='usertable table table-bordered'><thead>\n<tr><th rowspan='2'>$texts->{usertable_student}</th>";
+	$out .= sprintf("<th colspan='%d'><a href='%s'>$texts->{usertable_tasks}</a></th>", $taskcount, $self->get_url('tasklist')) if $taskcount;
+	$out .= sprintf("<th colspan='%d'>$texts->{usertable_bonuses}</th>", $bonuscount) if $bonuscount;
+	$out .= "<th rowspan='2'>$texts->{usertable_sum}</th></tr>\n<tr>";
 	for my $task (@tasks) {
 		$out .= sprintf "<th class='vertical'><a href='%s'>$task->{name}</a></th>", $self->get_url('task', {code => $task->{code}});
 	}
-	$out .= "<th>$texts->{usertable_sum}</th></tr>\n</thead><tbody>\n";
+	for my $bonus (@bonuses) {
+		$out .= "<th class='vertical'>$bonus->{name}</a></th>";
+	}
+	$out .= "</tr>\n</thead><tbody>\n";
 	for my $student (@students) {
 		utf8::decode($student->{name});
 		utf8::decode($student->{nick});
 
 		my $grouped_solutions = $all_solutions->{$student->{uid}};
+		my $bonus_points = $all_bonus_points->{$student->{uid}};
 		my $sum = 0;
 
 		$out .= sprintf("<tr><th>%s (%s)</th>", html_escape($student->{name}), html_escape($student->{nick})) if $user->{teacher};
@@ -470,11 +483,61 @@ sub usertable_page() {
 				$out .= "<td>$max_points</td>";
 			}
 		}
+		for my $bonus (@bonuses) {
+			if (defined $bonus_points->{$bonus->{bonus}}) {
+				$sum += $bonus_points->{$bonus->{bonus}}->{points};
+				$out .= "<td>$bonus_points->{$bonus->{bonus}}->{points}</td>";
+			} else {
+				$out .= "<td></td>";
+			}
+		}
+
 		$out .= "<th>$sum</th></tr>\n";
 	}
 	$out .= "</tbody>\n</table>\n";
 
 	return $out;
+}
+
+sub bonustable_page() {
+	my $self = shift;
+	my $texts = $self->{texts};
+	my $user = $self->{Main}->{user};
+
+	$self->{title} = $texts->{bonustable_title};
+
+	my @bonuses = $self->{Model}->get_bonuses();
+	my @students = $self->{Model}->get_students();
+
+	my $all_bonus_points = $self->{Model}->get_bonus_points();
+
+	my $out = $self->print_login_line();
+	$out .= sprintf "<a href='%s'>&rarr; $texts->{tasklist_title}</a>", $self->get_url('tasklist');
+	$out .= sprintf ", <a href='%s'>&rarr; $texts->{usertable_title}</a>", $self->get_url('usertable');
+
+	$out .= "<form method='post'>\n";
+	$out .= "<table class='usertable table table-bordered'><thead>\n<tr><th>$texts->{usertable_student}</th>";
+	for my $bonus (@bonuses) {
+		$out .= "<th class='vertical'>$bonus->{name}</a></th>";
+	}
+	$out .= "</tr>\n</thead><tbody>\n";
+	for my $student (@students) {
+		utf8::decode($student->{name});
+		utf8::decode($student->{nick});
+
+		my $bonus_points = $all_bonus_points->{$student->{uid}};
+
+		$out .= sprintf("<tr><th>%s (%s)</th>", html_escape($student->{name}), html_escape($student->{nick}));
+
+		for my $bonus (@bonuses) {
+			$out .= "<td><input type='text' size='1' name='bonus$student->{uid}$bonus->{bonus}' value='$bonus_points->{$bonus->{bonus}}->{points}'></td>";
+		}
+
+		$out .= "</tr>\n";
+	}
+	$out .= "</tbody>\n</table>\n";
+	$out .= "<input type='submit' class='btn btn-primary' name='bonus_submit' value='$texts->{form_submit_set}'></form>\n";
+
 }
 
 
@@ -574,6 +637,10 @@ sub default_texts() {
 		usertable_title => 'Tabulka bodů',
 		usertable_student => 'Student',
 		usertable_sum => 'Součet',
+		usertable_tasks => 'Úlohy',
+		usertable_bonuses => 'Bonusy',
+
+		bonustable_title => 'Bonusové body',
 	}
 }
 

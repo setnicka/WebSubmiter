@@ -100,6 +100,41 @@ sub get_task() {
 	return $task;
 }
 
+#### BONUSES ###################################################################
+
+sub get_bonuses() {
+	my $self = shift;
+	my $taskdb = $self->{Main}->{tasks};
+
+	return [] unless defined $taskdb->{bonuses};
+	return @{$taskdb->{bonuses}};
+}
+
+sub get_bonus_points() {
+	my $self = shift;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare("SELECT * FROM bonus_points");
+	$sth->execute();
+
+	return $sth->fetchall_hashref(['uid', 'bonus']);
+}
+
+sub remove_bonus_points() {
+	my ($self, $uid, $bonus) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare("DELETE FROM bonus_points WHERE uid=? AND bonus=?");
+	$sth->execute($uid, $bonus);
+}
+
+sub add_bonus_points() {
+	my ($self, $uid, $bonus, $points) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare("INSERT OR REPLACE INTO bonus_points(uid, bonus, points) VALUES(?, ?, ?)");
+	$sth->execute($uid, $bonus, $points);
+}
 
 #### STUDENTS ##################################################################
 

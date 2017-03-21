@@ -109,7 +109,7 @@ sub process($) {
 	my $data = {};
 	my $send_notifications;
 	my $param_table = {
-		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|usertable|task|solution', default => DEFAULT_PAGE },
+		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|usertable|bonustable|task|solution', default => DEFAULT_PAGE },
 		action		=> { var => \$data->{action}, check => 'new', default => '' },
 		code		=> { var => \$data->{code}, check => '\w+' },
 		send_notifications => { var => \$send_notifications },
@@ -126,6 +126,8 @@ sub process($) {
 		solution_comment=> { var => \$data->{solution_comment}, multiline => 1, default => ''},
 		set_points	=> { var => \$data->{set_points}, check => '\d+', default => ''},
 		set_status	=> { var => \$data->{set_status}, check => 'open|rated', default => 'open' },
+		# Bonus points
+		bonus_submit	=> { var => \$data->{bonus_submit}}
 	};
 	UCW::CGI::parse_args($param_table);
 	$self->{data} = $data;
@@ -162,6 +164,7 @@ sub process($) {
 	$self->{Worker}->manage_task() if $self->{page} eq 'task';
 	$self->{Worker}->manage_solution() if $self->{page} eq 'solution';
 	$self->{Worker}->manage_usertable() if $self->{page} eq 'usertable';
+	$self->{Worker}->manage_bonustable() if $self->{page} eq 'bonustable';
 
 	$self->{processed} = 1;
 }
@@ -181,6 +184,7 @@ sub render($) {
 		return $self->{View}->task_page() if ($self->{page} eq 'task');
 		return $self->{View}->solution_page() if ($self->{page} eq 'solution');
 		return $self->{View}->usertable_page() if ($self->{page} eq 'usertable');
+		return $self->{View}->bonustable_page() if ($self->{page} eq 'bonustable');
 		return $self->{View}->tasklist_page();
 	}
 }

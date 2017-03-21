@@ -140,4 +140,52 @@ sub manage_usertable() {
 	$self->{Main}->redirect('tasklist') unless $user->{teacher} || $self->{Main}->{options}->{usertable_for_students};
 }
 
+sub manage_bonustable() {
+	my $self = shift;
+	my $data = $self->{Main}->{data};
+	my $user = $self->{Main}->{user};
+
+	$self->{Main}->redirect('tasklist') unless $user->{teacher};
+	return unless $data->{bonus_submit};
+	# Only teacher can modify points
+
+	my @students = $self->{Model}->get_students();
+	my @bonuses = $self->{Model}->get_bonuses();
+
+	# 1. Get submitted form with points
+	my $bonuspoints = {};
+	my $bonuspoints_param_table = {};
+	for my $student (@students) {
+		for my $bonus (@bonuses) {
+			$bonuspoints_param_table->{"bonus$student->{uid}$bonus->{bonus}"} = { var => \$bonuspoints->{"$student->{uid}$bonus->{bonus}"}, check => '\d+' };
+		}
+	}
+	UCW::CGI::parse_args($bonuspoints_param_table);
+
+	# 2. Get current points from the DB
+	my $saved_points = $self->{Model}->get_bonus_points();
+
+	# 3. Check what to add/delete/update
+	# Delete not existing inputs or zeroes
+	for my $uid (keys %{$saved_points}) {
+		for my $bonus (keys %{$saved_points->{$uid}}) {
+			next if defined $bonuspoints->{"${uid}${bonus}"} && $bonuspoints->{"${uid}${bonus}"} != 0;
+			$self->{Model}->remove_bonus_points($uid, $bonus);
+		}
+	}
+
+	# Add/update if changed
+	for my $student (@students) {
+		for my $bonus (@bonuses) {
+			my $uid = $student->{uid};
+			my $bonus = $bonus->{bonus};
+			my $points = $bonuspoints->{"${uid}${bonus}"};
+			next if $points == 0 || (defined $saved_points->{$uid}->{$bonus} && $saved_points->{$uid}->{$bonus} == $points);
+			$self->{Model}->add_bonus_points($uid, $bonus, $points);
+		}
+	}
+
+	$self->{Main}->redirect('bonustable');
+}
+
 1;
