@@ -188,4 +188,40 @@ sub manage_bonustable() {
 	$self->{Main}->redirect('bonustable');
 }
 
+sub manage_mailer() {
+	my $self = shift;
+	my $data = $self->{Main}->{data};
+	my $options = $self->{Main}->{options};
+	my $user = $self->{Main}->{user};
+
+	# Only teacher may send emails
+	$self->{Main}->redirect('tasklist') unless $user->{teacher};
+
+	my @students = $self->{Model}->get_students();
+
+	my $all_solutions = $self->{Model}->get_all_solutions_grouped();
+
+	# 1. Prepare addresses
+	my @targets = ();
+	for my $student (@students) {
+		my $s = defined $all_solutions->{$student->{uid}} && defined $all_solutions->{$student->{uid}}->{$data->{code}};
+		utf8::decode($student->{name});
+		push @targets, $student
+			if $data->{mailer_target} eq 'all'
+			|| ($data->{mailer_target} eq 'with-submits' && $s)
+			|| ($data->{mailer_target} eq 'without-submits' && !$s)
+			|| ($data->{mailer_target} eq 'single' && $student->{uid} == $data->{uid});
+	}
+	$data->{mailer_prepared_targets} = \@targets;
+
+	# 2. Send emails (only when mailer_send)
+	return unless $data->{mailer_send};
+
+	for my $target (@targets) {
+		WebTaskSubmitter::Email::sendmail($options->{emails_from}, sprintf("%s <%s>", $target->{name}, $target->{email}), $data->{mailer_subject}, $data->{mailer_text});
+	}
+
+	$self->{Main}->redirect('mailer', {mailer_sended => 1});
+}
+
 1;

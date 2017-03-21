@@ -54,19 +54,39 @@ sub print_errors() {
 	return $out;
 }
 
+sub print_top_navigation() {
+	my $self = shift;
+	my $texts = $self->{texts};
+	my $user = $self->{Main}->{user};
+
+	my $page = $self->{Main}->{page};
+
+	my $out = '';
+	$out .= ($page eq 'tasklist' ? "<strong>$texts->{tasklist_title}</strong>" : sprintf "<a href='%s'>$texts->{tasklist_title}</a>", $self->get_url('tasklist'));
+	$out .= " | ".($page eq 'usertable' ? "<strong>$texts->{usertable_title}</strong>" : sprintf "<a href='%s'>$texts->{usertable_title}</a>", $self->get_url('usertable'))
+		if $user->{teacher} || $self->{Main}->{options}->{usertable_for_students};
+	if ($user->{teacher}) {
+		$out .= " | ".($page eq 'bonustable' ? "<strong>$texts->{bonustable_title}</strong>" : sprintf "<a href='%s'>$texts->{bonustable_title}</a>", $self->get_url('bonustable'));
+		$out .= " | ".($page eq 'mailer' ? "<strong>$texts->{mailer_title}</strong>" : sprintf "<a href='%s'>$texts->{mailer_title}</a>", $self->get_url('mailer'));
+	}
+	$out .= "<br>\n";
+	return $out;
+}
+
 sub print_login_line() {
 	my $self = shift;
 	my $texts = $self->{texts};
+	my $user = $self->{Main}->{user};
 
-	my $text = $self->{Main}->{user}->{teacher} ? $texts->{logged_in_teacher} : $texts->{logged_in_as};
+	my $text = $user->{teacher} ? $texts->{logged_in_teacher} : $texts->{logged_in_as};
 
 	my $special = '';
-	if ($self->{Main}->{user}->{teacher}) {
+	if ($user->{teacher}) {
 		my $not_sended_notifications = $self->{Model}->get_not_sended_notifications_count();
 		$special = "<form method='post'><input type='submit' name='send_notifications' class='btn btn-warning btn-xs' value='$texts->{send_notifications} ($not_sended_notifications)'></form>" if $not_sended_notifications;
 	}
 
-	return sprintf "<div class='login_line'>%s $text <strong>%s</strong> <a href='%s'>[$texts->{logout}]</a></div>\n", $special, $self->{Main}->{user}->{name}, $self->get_url('logout');
+	return sprintf "<div class='login_line'>%s $text <strong>%s</strong> <a href='%s'>[$texts->{logout}]</a></div>\n", $special, $user->{name}, $self->get_url('logout');
 }
 
 ################################################################################
@@ -126,7 +146,7 @@ sub tasklist_page() {
 	$self->{title} = $texts->{tasklist_title};
 
 	my $out = $self->print_login_line();
-	$out .= sprintf("<a href='%s'>&rarr; $texts->{usertable_title}</a>", $self->get_url('usertable')) if $user->{teacher} || $self->{Main}->{options}->{usertable_for_students};
+	$out .= $self->print_top_navigation();
 
 	$out .= "<p>$texts->{tasklist_intro}</p>\n";
 
@@ -244,6 +264,7 @@ sub task_page() {
 	$self->{title} = "$texts->{task_title} $task->{name}";
 
 	my $out = $self->print_login_line();
+	$out .= $self->print_top_navigation();
 	$out .= sprintf "<a href='%s'>&larr; $texts->{task_back_to_tasklist}</a><br>\n", $self->get_url('tasklist');
 
 	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
@@ -307,6 +328,7 @@ sub solution_page() {
 	$self->{title} = "$texts->{solution_title} $task->{name}";
 
 	my $out = $self->print_login_line();
+	$out .= $self->print_top_navigation();
 	$out .= sprintf "<a href='%s'>&larr; $texts->{task_back_to_tasklist}</a> | <a href='%s'>$texts->{solution_back_to_task}</a><br>\n", $self->get_url('tasklist'), $self->get_url('task', {code => $solution->{task}});
 
 	$out .= "<strong>$texts->{task_deadline}:</strong> $task->{deadline}<br>\n";
@@ -444,8 +466,7 @@ sub usertable_page() {
 	my $all_bonus_points = $self->{Model}->get_bonus_points();
 
 	my $out = $self->print_login_line();
-	$out .= sprintf "<a href='%s'>&rarr; $texts->{tasklist_title}</a>", $self->get_url('tasklist');
-	$out .= sprintf ", <a href='%s'>&rarr; $texts->{bonustable_title}</a>", $self->get_url('bonustable') if $user->{teacher};
+	$out .= $self->print_top_navigation();
 
 	$out .= "<table class='usertable table table-bordered'><thead>\n<tr><th rowspan='2'>$texts->{usertable_student}</th>";
 	$out .= sprintf("<th colspan='%d'><a href='%s'>$texts->{usertable_tasks}</a></th>", $taskcount, $self->get_url('tasklist')) if $taskcount;
@@ -502,7 +523,6 @@ sub usertable_page() {
 sub bonustable_page() {
 	my $self = shift;
 	my $texts = $self->{texts};
-	my $user = $self->{Main}->{user};
 
 	$self->{title} = $texts->{bonustable_title};
 
@@ -512,8 +532,7 @@ sub bonustable_page() {
 	my $all_bonus_points = $self->{Model}->get_bonus_points();
 
 	my $out = $self->print_login_line();
-	$out .= sprintf "<a href='%s'>&rarr; $texts->{tasklist_title}</a>", $self->get_url('tasklist');
-	$out .= sprintf ", <a href='%s'>&rarr; $texts->{usertable_title}</a>", $self->get_url('usertable');
+	$out .= $self->print_top_navigation();
 
 	$out .= "<form method='post'>\n";
 	$out .= "<table class='usertable table table-bordered'><thead>\n<tr><th>$texts->{usertable_student}</th>";
@@ -538,8 +557,98 @@ sub bonustable_page() {
 	$out .= "</tbody>\n</table>\n";
 	$out .= "<input type='submit' class='btn btn-primary' name='bonus_submit' value='$texts->{form_submit_set}'></form>\n";
 
+	return $out;
 }
 
+sub mailer_page() {
+	my $self = shift;
+	my $texts = $self->{texts};
+	my $data = $self->{Main}->{data};
+
+	my @tasks = $self->{Model}->get_enabled_tasks();
+	my @students = $self->{Model}->get_students();
+
+	$self->{title} = $texts->{mailer_title};
+
+	my $out = $self->print_login_line();
+	$out .= $self->print_top_navigation();
+
+	$out .= "<p style='text-align: center;'><strong>$texts->{mailer_sended_info}</strong></p>" if $data->{mailer_sended};
+
+	my $select_students = '';
+	for my $student (@students) {
+		utf8::decode($student->{name});
+		$select_students .= sprintf "<option value='%d'%s>%s &lt;%s&gt;\n", $student->{uid}, ($data->{uid} == $student->{uid} ? ' selected' : ''), $student->{name}, $student->{email};
+	}
+
+	my $select_tasks = '';
+	for my $task (@tasks) {
+		$select_tasks .= sprintf "<option value='%s'%s>%s\n", $task->{code}, ($data->{code} eq $task->{code} ? ' selected' : ''), $task->{name};
+	}
+
+	my $readonly = '';
+	my $submit_button = '';
+
+	$out .= "<form method='post'>";
+	if ($data->{mailer_prepare}) {
+		# Prepared to send email, list it content and all addresses to send it
+
+		$out .= "<h3>$texts->{mailer_prepared_email}</h3>\n";
+
+		$out .= "<strong>$texts->{mailer_target}:</strong><br>\n";
+		my @targets = ();
+		for my $target (@{$data->{mailer_prepared_targets}}) {
+			utf8::decode($target->{name});
+			push @targets, "$target->{name} &lt;$target->{email}&gt;";
+		}
+		$out .= join(', ', @targets);
+
+		$out .= sprintf "<br><br><input type='hidden' name='mailer_target' value='%s'><input type='hidden' name='code' value='%s'><input type='hidden' name='uid' value='%d'>\n",
+			$data->{mailer_target}, $data->{code}, $data->{uid};
+		$readonly = 'readonly';
+
+		$submit_button = "<input type='submit' class='btn btn-primary' name='mailer_send' value='$texts->{form_submit}'>\n";
+		$submit_button .= "<input type='submit' class='btn btn-primary' value='$texts->{form_submit_back}'>\n";
+	} else {
+		$out .= sprintf "<h3>$texts->{mailer_target}:</h3>\n<div class='graybox'>
+			<div class='radio'>
+				<label><input type='radio' name='mailer_target' value='all'%s>$texts->{mailer_target_all}</label>
+			</div>
+			<hr>
+			<strong>$texts->{mailer_target_by_task}:</strong>
+			<div class='radio'>
+				<label><input type='radio' name='mailer_target' value='with-submits'%s>$texts->{mailer_target_with_submits}:</label>
+			</div>
+			<div class='radio'>
+				<label><input type='radio' name='mailer_target' value='without-submits'%s>$texts->{mailer_target_without_submits}:</label>
+			</div>
+			<select name='code' class='form-control'>\n$select_tasks</select>
+			<hr>
+			<div class='radio'>
+				<label><input type='radio' name='mailer_target' value='single'%s>$texts->{mailer_target_single}:</label>
+			</div>
+			<select name='uid' class='form-control'>\n$select_students</select>
+		</div><br>\n",
+			($data->{mailer_target} eq 'all' ? ' checked' : ''),
+			($data->{mailer_target} eq 'with-submits' ? ' checked' : ''),
+			($data->{mailer_target} eq 'without-submits' ? ' checked' : ''),
+			($data->{mailer_target} eq 'single' ? ' checked' : '');
+
+		$submit_button = "<input type='submit' class='btn btn-primary' name='mailer_prepare' value='$texts->{form_submit_prepare}'>\n";
+	}
+
+	$out .= "<div class='form-group'>\n<label for='mailer_subject'>$texts->{mailer_subject}:</label>\n";
+	$out .= sprintf "<input $readonly type='text' class='form-control' name='mailer_subject' value='%s'>\n</div>\n", $data->{mailer_subject};
+	$out .= "<div class='form-group'><label for='mailer_text'>$texts->{mailer_text}:</label>\n";
+	$out .= sprintf "<textarea $readonly class='form-control' name='mailer_text' id='mailer_text' rows='10'>%s</textarea>\n</div>\n", html_escape($data->{mailer_text});
+	$out .= $submit_button;
+
+	$out .= "</form>\n";
+
+
+
+	return $out;
+}
 
 sub default_texts() {
 	return {
@@ -568,6 +677,8 @@ sub default_texts() {
 		form_submit_add_comment => 'Přidat komentář',
 		form_submit_set => 'Nastav',
 		form_submit_set_max_points => 'Nastav plné body',
+		form_submit_prepare => 'Připrav k odeslání',
+		form_submit_back => 'Zpět',
 
 		send_notifications => 'Odeslat dávkově upozornění studentům',
 
@@ -641,6 +752,19 @@ sub default_texts() {
 		usertable_bonuses => 'Bonusy',
 
 		bonustable_title => 'Bonusové body',
+
+		mailer_title => 'Poslat emaily',
+		mailer_prepared_email => 'Email připravený k odeslání:',
+		mailer_sended_info => 'Emaily úspěšně odeslány',
+
+		mailer_target => 'Adresáti',
+		mailer_target_all => 'Všichni studenti',
+		mailer_target_by_task => 'Podle úlohy',
+		mailer_target_with_submits => 'Studenti, kteří poslali řešení této úlohy',
+		mailer_target_without_submits => 'Studenti, kteří ještě neposlali řešení této úlohy',
+		mailer_target_single => 'Vybraný student',
+		mailer_subject => 'Předmět',
+		mailer_text => 'Text emailu',
 	}
 }
 

@@ -109,11 +109,12 @@ sub process($) {
 	my $data = {};
 	my $send_notifications;
 	my $param_table = {
-		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|usertable|bonustable|task|solution', default => DEFAULT_PAGE },
+		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|usertable|bonustable|task|solution|mailer', default => DEFAULT_PAGE },
 		action		=> { var => \$data->{action}, check => 'new', default => '' },
 		code		=> { var => \$data->{code}, check => '\w+' },
 		send_notifications => { var => \$send_notifications },
 		# Login/registration related fields
+		uid		=> { var => \$data->{uid}, check => '\d+'},
 		login		=> { var => \$data->{login} },
 		passwd		=> { var => \$data->{passwd} },
 		passwd_check	=> { var => \$data->{passwd_check} },
@@ -126,6 +127,13 @@ sub process($) {
 		solution_comment=> { var => \$data->{solution_comment}, multiline => 1, default => ''},
 		set_points	=> { var => \$data->{set_points}, check => '\d+', default => ''},
 		set_status	=> { var => \$data->{set_status}, check => 'open|rated', default => 'open' },
+		# Mailer
+		mailer_target	=> { var => \$data->{mailer_target}, check => 'all|with-submits|without-submits|single', default => 'all' },
+		mailer_subject	=> { var => \$data->{mailer_subject} },
+		mailer_text	=> { var => \$data->{mailer_text}, multiline => 1 },
+		mailer_send	=> { var => \$data->{mailer_send} },
+		mailer_prepare	=> { var => \$data->{mailer_prepare} },
+		mailer_sended	=> { var => \$data->{mailer_sended} },
 		# Bonus points
 		bonus_submit	=> { var => \$data->{bonus_submit}}
 	};
@@ -166,6 +174,8 @@ sub process($) {
 	$self->{Worker}->manage_usertable() if $self->{page} eq 'usertable';
 	$self->{Worker}->manage_bonustable() if $self->{page} eq 'bonustable';
 
+	$self->{Worker}->manage_mailer() if $self->{page} eq 'mailer';
+
 	$self->{processed} = 1;
 }
 
@@ -185,6 +195,7 @@ sub render($) {
 		return $self->{View}->solution_page() if ($self->{page} eq 'solution');
 		return $self->{View}->usertable_page() if ($self->{page} eq 'usertable');
 		return $self->{View}->bonustable_page() if ($self->{page} eq 'bonustable');
+		return $self->{View}->mailer_page() if ($self->{page} eq 'mailer');
 		return $self->{View}->tasklist_page();
 	}
 }

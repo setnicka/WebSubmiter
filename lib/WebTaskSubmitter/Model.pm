@@ -106,7 +106,7 @@ sub get_bonuses() {
 	my $self = shift;
 	my $taskdb = $self->{Main}->{tasks};
 
-	return [] unless defined $taskdb->{bonuses};
+	return () unless defined $taskdb->{bonuses};
 	return @{$taskdb->{bonuses}};
 }
 

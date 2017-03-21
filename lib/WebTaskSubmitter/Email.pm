@@ -72,6 +72,7 @@ sub notify_comment() {
 
 		$body .= $texts->{email_footer};
 		my $user = $self->{Model}->get_user($uid);
+		utf8::decode($user->{name});
 		sendmail($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
 		$sended = 1;
 	}
@@ -109,6 +110,7 @@ sub notify_points_changed() {
 
 		$body .= $texts->{email_footer};
 		my $user = $self->{Model}->get_user($uid);
+		utf8::decode($user->{name});
 		sendmail($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
 
 		$sended = 1;
@@ -176,7 +178,7 @@ sub send_prepared_notifications() {
 		$subject = "$texts->{subject_prefix}$texts->{subject_multiple_solutions}" if $count_solutions > 1;
 
 		$body .= $texts->{email_footer};
-
+		utf8::decode($user->{name});
 		sendmail($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
 	}
 
