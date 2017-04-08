@@ -113,6 +113,13 @@ sub manage_solution() {
 	# Test if logged in user (or teacher)
 	$self->{Main}->redirect('tasklist') unless ($user->{teacher} || $row->{uid} == $user->{uid});
 
+	# Downloading solution code?
+	if ($data->{action} eq 'download') {
+		print "Content-type: text/plain; charset=utf-8\nContent-Disposition: attachment; filename=\"solution_$row->{task}_$row->{uid}.sh\"\n\n";
+		print $row->{code};
+		exit;
+	}
+
 	# If there is comment submitted
 	if (length($data->{solution_comment})) {
 		my $cid = $self->{Model}->add_comment($data->{sid}, $user, $data->{solution_comment});

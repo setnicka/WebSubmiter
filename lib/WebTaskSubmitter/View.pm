@@ -352,6 +352,7 @@ sub solution_page() {
 	$out .= "<strong>$texts->{solution_status}:</strong> $status<br>\n";
 	$out .= "<strong>$texts->{solution_points}:</strong> <strong>$solution->{points}</strong> / $task->{max_points}<br>\n";
 	$out .= sprintf "<div class='solution_code'><textarea disabled class='form-control' id='solution_code'>%s</textarea></div>\n\n", html_escape($solution->{code});
+	$out .= sprintf "<a href='%s'>$texts->{solution_download}</a>\n", $self->get_url('solution', {sid => $data->{sid}, action => 'download'});
 
 	foreach my $js ('codemirror/codemirror.js', 'codemirror/matchbrackets.js', 'codemirror/shell.js', 'epiceditor.min.js') {
 		$self->{headers} .= "<script src='$options->{js_path}/$js'></script>\n";
@@ -363,7 +364,7 @@ sub solution_page() {
 		lineNumbers: true,
 		matchBrackets: true,
 		theme: 'midnight',
-		readOnly: 'nocursor'
+		readOnly: true
 	});
 	</script>\n";
 
@@ -740,6 +741,7 @@ sub default_texts() {
 		solution_status => 'Stav řešení',
 		solution_code => 'Kód řešení',
 		solution_back_to_task => 'Zpět na zadání úlohy',
+		solution_download => 'Stáhnout řešení',
 
 		comment_author => 'Autor',
 		comment_date => 'Datum',

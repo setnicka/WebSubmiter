@@ -110,7 +110,7 @@ sub process($) {
 	my $send_notifications;
 	my $param_table = {
 		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|usertable|bonustable|task|solution|mailer', default => DEFAULT_PAGE },
-		action		=> { var => \$data->{action}, check => 'new', default => '' },
+		action		=> { var => \$data->{action}, check => 'new|download', default => '' },
 		code		=> { var => \$data->{code}, check => '\w+' },
 		send_notifications => { var => \$send_notifications },
 		# Login/registration related fields
