@@ -2,6 +2,10 @@ table th {
 	text-align: center;
 }
 
+hr {
+	border-color: #999999;
+}
+
 div.error {
 	background-color: #f2dede;
 	border: 1px solid #f28888;

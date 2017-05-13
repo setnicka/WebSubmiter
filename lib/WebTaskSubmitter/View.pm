@@ -331,6 +331,33 @@ sub task_page() {
 	$out .= $task->{text};
 	$out .= "\n</div>\n\n";
 
+	my $codemirror_headers_added = 0;
+	if ($task->{show_solution}) {
+		$out .= "<hr><h3>$texts->{task_solution}</h3>\n";
+		$out .= "<div class='task_description'>\n$task->{solution}\n</div>\n\n" if length $task->{solution};
+
+		$task->{solution_code} =~ s/\s+$//;
+		$out .= sprintf "<div class='solution_code'><textarea disabled class='form-control' id='task_solution_code'>%s</textarea></div>\n\n", html_escape($task->{solution_code});
+		$out .= sprintf "<a href='%s'>$texts->{solution_download}</a>\n", $self->get_url('task', {code => $data->{code}, action => 'solution_download'});
+
+		$codemirror_headers_added = 1;
+		foreach my $js ('codemirror/codemirror.js', 'codemirror/matchbrackets.js', 'codemirror/active-line.js', 'codemirror/shell.js', 'epiceditor.min.js') {
+			$self->{headers} .= "<script src='$options->{js_path}/$js'></script>\n";
+		}
+		foreach my $css ('codemirror/codemirror.css', 'codemirror/midnight.css') {
+			$self->{headers} .= "<link rel='stylesheet' href='$options->{css_path}/$css'>\n";
+		}
+		$out .= "<script type='text/javascript'>
+		var codeMirror = CodeMirror.fromTextArea(document.getElementById('task_solution_code'), {
+			mode: 'shell',
+			lineNumbers: true,
+			matchBrackets: true,
+			theme: 'midnight',
+			readOnly: true
+		});
+		</script>\n";
+	}
+
 	$out .= "<hr><h3>$texts->{solutions_list}</h3>\n";
 	$out .= $self->print_solutions($all_solutions, $task, $counts);
 
@@ -349,11 +376,13 @@ sub task_page() {
 	$out .= "<button type='submit' class='btn btn-primary'>$texts->{form_submit}</button>\n";
 	$out .= "</form>\n";
 
-	foreach my $js ('codemirror/codemirror.js', 'codemirror/matchbrackets.js', 'codemirror/active-line.js', 'codemirror/shell.js', 'epiceditor.min.js') {
-		$self->{headers} .= "<script src='$options->{js_path}/$js'></script>\n";
-	}
-	foreach my $css ('codemirror/codemirror.css', 'codemirror/midnight.css') {
-		$self->{headers} .= "<link rel='stylesheet' href='$options->{css_path}/$css'>\n";
+	unless ($codemirror_headers_added) {
+		foreach my $js ('codemirror/codemirror.js', 'codemirror/matchbrackets.js', 'codemirror/active-line.js', 'codemirror/shell.js', 'epiceditor.min.js') {
+			$self->{headers} .= "<script src='$options->{js_path}/$js'></script>\n";
+		}
+		foreach my $css ('codemirror/codemirror.css', 'codemirror/midnight.css') {
+			$self->{headers} .= "<link rel='stylesheet' href='$options->{css_path}/$css'>\n";
+		}
 	}
 	$out .= "<script type='text/javascript'>
 	var codeMirror = CodeMirror.fromTextArea(document.getElementById('solution_code'), {
@@ -412,10 +441,12 @@ sub solution_page() {
 	$out .= sprintf "<div class='solution_code'><textarea disabled class='form-control' id='solution_code'>%s</textarea></div>\n\n", html_escape($solution->{code});
 	$out .= sprintf "<a href='%s'>$texts->{solution_download}</a>\n", $self->get_url('solution', {sid => $data->{sid}, action => 'download'});
 
-	foreach my $js ('codemirror/codemirror.js', 'codemirror/matchbrackets.js', 'codemirror/shell.js', 'epiceditor.min.js') {
+	foreach my $js ('codemirror/codemirror.js', 'codemirror/matchbrackets.js', 'codemirror/active-line.js', 'codemirror/shell.js', 'epiceditor.min.js') {
 		$self->{headers} .= "<script src='$options->{js_path}/$js'></script>\n";
 	}
-	$self->{headers} .= "<link rel='stylesheet' href='$options->{css_path}/codemirror/codemirror.css'><link rel='stylesheet' href='$options->{css_path}/codemirror/midnight.css'>\n";
+	foreach my $css ('codemirror/codemirror.css', 'codemirror/midnight.css') {
+		$self->{headers} .= "<link rel='stylesheet' href='$options->{css_path}/$css'>\n";
+	}
 	$out .= "<script type='text/javascript'>
 	var codeMirror = CodeMirror.fromTextArea(document.getElementById('solution_code'), {
 		mode: 'shell',
@@ -819,6 +850,7 @@ sub default_texts() {
 		task_points => 'Získané body',
 		task_description => 'Zadání',
 		task_back_to_tasklist => 'Zpět na seznam úloh',
+		task_solution => 'Vzorové řešení',
 
 		solutions_list => 'Seznam odevdaných řešení',
 		solutions_no_solutions => 'Zatím žádná odevzdaná řešení',

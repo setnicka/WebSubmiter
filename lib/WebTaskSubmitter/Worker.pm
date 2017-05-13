@@ -144,6 +144,13 @@ sub manage_task() {
 	# ... and is enabled
 	$self->{Main}->redirect('tasklist') unless $task->{enabled};
 
+	# Downloading solution code?
+	if ($data->{action} eq 'solution_download' && $task->{show_solution} && length $task->{solution_code}) {
+		print "Content-type: text/plain; charset=utf-8\nContent-Disposition: attachment; filename=\"solution_$data->{code}.sh\"\n\n";
+		print $task->{solution_code};
+		exit;
+	}
+
 	# If there is solution submitted
 	if (length($data->{solution_code})) {
 		my $sid = $self->{Model}->add_solution($data->{code}, $user->{uid}, $data->{solution_code});

@@ -99,6 +99,7 @@ sub get_enabled_tasks() {
 		my $task = $taskdb->{tasks}->{$taskcode};
 		$task->{code} = $taskcode;
 		$task->{deadline} = $t->{deadline};
+		$task->{show_solution} = $t->{show_solution};
 		$task->{max_points} = $t->{max_points};
 		$task->{count_solutions} = $counts->{$taskcode}->{total} || 0;
 		$task->{count_solutions_rated} = $counts->{$taskcode}->{rated} || 0;
@@ -119,6 +120,7 @@ sub get_task_simple() {
 
 	$task->{enabled} = (scalar @enabled);
 	$task->{deadline} = @enabled[0]->{deadline} if $task->{enabled};
+	$task->{show_solution} = $enabled[0]->{show_solution};
 	$task->{max_points} = @enabled[0]->{max_points} if $task->{enabled};
 
 	return $task;
