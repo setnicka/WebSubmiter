@@ -94,6 +94,7 @@ sub print_login_line() {
 sub login_page() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
+	my $options = $self->{Main}->{options};
 	my $texts = $self->{texts};
 
 	$self->{title} = $texts->{login_title};
@@ -103,6 +104,7 @@ sub login_page() {
 	$out .= "<p>$texts->{logout_completed}</p>\n" if $self->{Main}->{status} eq 'logout_completed';
 
 	$out .= sprintf "<p>$texts->{login_not_logged_in} <a href='%s'>$texts->{login_registrate}</a>.</p>\n", $self->get_url('registration');
+	$out .= sprintf "<p>$texts->{login_renew_password} <a href='%s'>$texts->{login_renew_password_link}</a>.</p>\n", $self->get_url('renew_password') if $options->{renew_password_enabled};
 	$out .= $self->print_errors();
 	$out .= "<form method='post' class='form-horizontal'><table>\n";
 	$out .= sprintf "<tr><th>$texts->{form_login}:</th><td><input type='text' name='login' value='%s'></td></tr>\n", html_escape($data->{name});;
@@ -138,9 +140,46 @@ sub registration_page() {
 	return $out;
 }
 
+sub renew_password_page() {
+	my $self = shift;
+	my $data = $self->{Main}->{data};
+	my $texts = $self->{texts};
+	my $status = $self->{Main}->{status};
+
+	$self->{title} = $texts->{renew_password_title};
+	my $out = "";
+
+	$out .= $self->print_errors();
+
+	if ($status eq 'show_form') {
+		$out .= sprintf "<p>$texts->{renew_password_intro} <a href='%s'>$texts->{renew_password_login}</a>.</p>", $self->get_url('login');
+		$out .= "<form method='post' class='form-inline'>\n",
+		$out .= "<div class='form-group'><label for='login'>$texts->{form_login_or_email}:</label><input type='text' name='login'></div>\n";
+		$out .= "<button type='submit' class='btn btn-primary'>$texts->{form_submit}</button>\n";
+		$out .= "</form>\n";
+	} elsif ($status eq 'email_sended') {
+		$out .= "<p>$texts->{renew_password_sended}</p>";
+	} elsif ($status eq 'change_authorized') {
+		my $user = $self->{Model}->get_user($data->{uid});
+		utf8::decode($user->{name});
+		$out .= "<p>$texts->{renew_password_authorized}</p>";
+		$out .= "<form method='post'><table>\n",
+		$out .= sprintf "<tr><th>$texts->{form_user}:</th><td>%s (%s)</tr>\n", html_escape($user->{login}), html_escape($user->{name});
+		$out .= "<tr><th>$texts->{form_password}:</th><td><input type='password' name='passwd'></td></tr>\n";
+		$out .= "<tr><th>$texts->{form_password_check}:</th><td><input type='password' name='passwd_check'></td></tr>\n";
+		$out .= "<tr><th colspan='2'><input type='submit' class='btn btn-primary' value='$texts->{form_submit}'></th></tr>\n";
+		$out .= "</table></form>\n";
+	} elsif ($status eq 'change_completed') {
+		$out .= sprintf "<p>$texts->{renew_password_completed} <a href='%s'>$texts->{renew_password_login}</a>.</p>", $self->get_url('login');
+	}
+
+	return $out;
+}
+
 sub tasklist_page() {
 	my $self = shift;
 	my $texts = $self->{texts};
+	my $options = $self->{Main}->{options};
 	my $user = $self->{Main}->{user};
 
 	$self->{title} = $texts->{tasklist_title};
@@ -661,7 +700,9 @@ sub default_texts() {
 		status_submitted => 'Odevzdáno, čeká na ohodnocení',
 		status_rated => 'Ohodnoceno',
 
+		form_user => 'Uživatel',
 		form_login => 'Login',
+		form_login_or_email => 'Login nebo email',
 		form_password => 'Heslo',
 		form_password_check => 'Heslo pro kontrolu',
 		form_name => 'Jméno a příjmení',
@@ -695,18 +736,31 @@ sub default_texts() {
 		error_nick_empty => 'Přezdívka nemůže být prázdná',
 		error_email_wrong => 'Email není ve správném formátu',
 
+		error_renew_password_unknown => 'Neeplatný požadavek na změnu hesla',
+		error_renew_password_invalid => 'Nesprávný nebo expirovaný token pro změnu hesla',
+		error_renew_password_not_found => 'Uživatel s tímto loginem ani emailem neexistuje',
+
 		################################################################
 		logout_completed => 'Odhlášení úspěšné',
 
 		login_title => 'Přihlášení',
 		login_not_logged_in => 'Nejste přihlášení, zadejte login a heslo k přihlášení. Pokud ještě nemáte účet, můžete se',
 		login_registrate => 'registrovat',
+		login_renew_password => 'Pokud jste zapomněli heslo, můžete si ho',
+		login_renew_password_link => 'obnovit',
 
 		registration_title => 'Vytvoření nového účtu',
 		registration_intro => 'Pro vytvoření nového účtu a možnost odevzdávání úkolů vyplňte formulář níže. Přezdívka se použije při zobrazení vašeho jména
 		ostatním studentům (učitel vidí celé jméno). Pokud již máte účet, můžete se',
 		registration_login => 'přihlásit',
 		registration_completed => 'Registrace úspěšná, nyní se můžete',
+
+		renew_password_title => 'Obnova hesla',
+		renew_password_intro => 'Pokud jste zapomněli heslo, zadejte níže svůj login nebo registrovaný email a bude vám zaslán odkaz pro změnu hesla. Pokud heslo měnit nepotřebujete, vraťte se zpět na',
+		renew_password_login => 'přihlášení',
+		renew_password_sended => 'Uživatel nalezen, na email uvedený při registraci byl odeslán email s odkazem pro změnu hesla.',
+		renew_password_authorized => 'Token pro změnu hesla je platný, níže zadejte své nové heslo.',
+		renew_password_completed => 'Heslo bylo úspěšně změněno, nyní se již můžete',
 
 		tasklist_title => 'Seznam úloh',
 		tasklist_intro => 'Vyberte si úlohu',

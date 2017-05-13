@@ -23,6 +23,9 @@ my $webTaskSubmitter = new WebTaskSubmitter({
 	# date_format_submits => "%H:%M:%S %d.%m.%Y",  # Not used yet
 	usertable_for_students => 1,  # If student could see table with other students and points
 
+	renew_password_expire => 3600,  # Default: 60m
+	renew_password_enabled => 1,
+
 	emails_enabled => 1,
 	emails_immediate => 0,  # Send emails immediate after change (otherwise send all notifications at once when teacher press "send emails" button)
 	emails_from => 'WebTaskSubmitter <test@test.test>',

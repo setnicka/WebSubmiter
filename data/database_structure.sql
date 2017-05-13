@@ -5,7 +5,8 @@ CREATE TABLE "users" (
   "salt" text NOT NULL,
   "name" text NOT NULL,
   "nick" text NOT NULL,
-  "email" text NOT NULL
+  "email" text NOT NULL,
+  "renew_password_token" text NOT NULL
 );
 
 CREATE TABLE "solutions" (

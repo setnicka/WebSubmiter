@@ -33,16 +33,55 @@ sub get_user_by_login() {
 	return $sth->fetchrow_hashref();
 }
 
+sub get_user_by_login_or_email() {
+	my ($self, $search) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare("SELECT * FROM users WHERE login=? OR email=?");
+	$sth->execute($search, $search);
+	return $sth->fetchrow_hashref();
+}
+
+sub get_salt() {
+	my $self = shift;
+	my $len = shift // 12;
+
+	my @chars = ("A".."Z", "a".."z", 0..9);
+	my $salt;
+	$salt .= $chars[rand @chars] for 1..$len;
+	return $salt;
+}
+
 sub register_new_user() {
 	my ($self, $data) = @_;
 	my $dbh = $self->{Main}->{dbh};
 
-	my @chars = ("A".."Z", "a".."z", 0..9);
-	my $salt;
-	$salt .= $chars[rand @chars] for 1..8;
+	my $salt = $self->get_salt();
 	my $salted_passwd = sha1_hex($salt, $data->{passwd});
 	my $sth = $dbh->prepare('INSERT INTO users(login,passwd,salt,name,nick,email) VALUES(?,?,?,?,?,?)');
 	return $sth->execute($data->{login}, $salted_passwd, $salt, $data->{name}, $data->{nick}, $data->{email});
+}
+
+sub change_password() {
+	my ($self, $data) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $salt = $self->get_salt();
+	my $salted_passwd = sha1_hex($salt, $data->{passwd});
+	my $sth = $dbh->prepare('UPDATE users SET salt=?, passwd=?, renew_passwd_token="" WHERE uid=?');
+	return $sth->execute($salt, $salted_passwd, $data->{uid});
+}
+
+sub get_renew_password_token() {
+	my ($self, $user) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $token = $self->get_salt();
+	my $timestamp = time() + $self->{Main}->{options}->{renew_password_expire};
+	my $sth = $dbh->prepare('UPDATE users SET renew_passwd_token=? WHERE uid=?');
+	$sth->execute($token, $user->{uid});
+
+	return (sha1_hex($token, $timestamp), $timestamp);
 }
 
 #### TASKS (not in SQLite) #####################################################

@@ -109,7 +109,7 @@ sub process($) {
 	my $data = {};
 	my $send_notifications;
 	my $param_table = {
-		page		=> { var => \$self->{page}, check => 'login|teacher_login|logout|registration|tasklist|usertable|bonustable|task|solution|mailer', default => DEFAULT_PAGE },
+		page		=> { var => \$self->{page}, check => 'login|renew_password|logout|registration|tasklist|usertable|bonustable|task|solution|mailer', default => DEFAULT_PAGE },
 		action		=> { var => \$data->{action}, check => 'new|download', default => '' },
 		code		=> { var => \$data->{code}, check => '\w+' },
 		send_notifications => { var => \$send_notifications },
@@ -135,7 +135,10 @@ sub process($) {
 		mailer_prepare	=> { var => \$data->{mailer_prepare} },
 		mailer_sended	=> { var => \$data->{mailer_sended} },
 		# Bonus points
-		bonus_submit	=> { var => \$data->{bonus_submit}}
+		bonus_submit	=> { var => \$data->{bonus_submit}},
+		# Renew password
+		timestamp	=> { var => \$data->{timestamp}},
+		token		=> { var => \$data->{token}},
 	};
 	UCW::CGI::parse_args($param_table);
 	$self->{data} = $data;
@@ -148,20 +151,19 @@ sub process($) {
 	################
 
 	# 1) When not logged in, redirect to login page
-	if (!defined $self->{user} && $self->{page} ne 'login' && $self->{page} ne 'teacher_login' && $self->{page} ne 'registration') {
+	if (!defined $self->{user} && $self->{page} ne 'login' && ! $self->{page} ~~ ['login', 'registration', 'renew_password']) {
 		$self->redirect('login');
 	}
 
 	# 2) Login and registration page (accesible only when not logged in)
-	if ($self->{page} eq 'login') {
-		$self->redirect('tasklist') if (defined $self->{user});
-		$self->{Worker}->manage_login();
-	} elsif ($self->{page} eq 'registration') {
-		$self->redirect('tasklist') if (defined $self->{_user});
-		$self->{Worker}->manage_registration();
-	} elsif ($self->{page} eq 'logout') {
-		$self->{Worker}->manage_logout();
+	if ($self->{page} ~~ ['login', 'registration', 'renew_password'] && defined $self->{user}) {
+		$self->redirect('tasklist')
 	}
+	$self->{Worker}->manage_login() if $self->{page} eq 'login';
+	$self->{Worker}->manage_registration() if $self->{page} eq 'registration';
+	$self->{Worker}->manager_renew_password() if $self->{page} eq 'renew_password';
+
+	$self->{Worker}->manage_logout() if $self->{page} eq 'logout';
 
 	# 3) Notifications
 	if ($send_notifications) {
@@ -188,7 +190,7 @@ sub render($) {
 
 	if (!defined $self->{user}) {
 		return $self->{View}->registration_page() if ($self->{page} eq 'registration');
-		return $self->{View}->teacher_login_page() if ($self->{page} eq 'teacher_login');
+		return $self->{View}->renew_password_page() if ($self->{page} eq 'renew_password');
 		return $self->{View}->login_page();
 	} else {
 		return $self->{View}->task_page() if ($self->{page} eq 'task');

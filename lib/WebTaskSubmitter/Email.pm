@@ -3,6 +3,7 @@ package WebTaskSubmitter::Email;
 use common::sense;
 use Mail::Sendmail;
 use Encode;
+use Time::Piece;
 
 sub new {
 	my $class = shift;
@@ -79,7 +80,6 @@ sub notify_comment() {
 
 	# Save into DB:
 	$self->{Model}->add_notification('comment', $uid, $sid, $cid, '', $sended);
-
 }
 
 sub notify_points_changed() {
@@ -185,6 +185,24 @@ sub send_prepared_notifications() {
 	$self->{Model}->set_notifications_sended($max_nid);
 }
 
+sub send_renew_password_email() {
+	my ($self, $user, $token, $timestamp) = @_;
+	my $options = $self->{Main}->{options};
+	my $texts = $self->{texts};
+
+	utf8::decode($user->{name});
+
+	my $subject = "$texts->{subject_prefix}$texts->{subject_renew_password}";
+	my $body = sprintf($texts->{renew_password_template},
+		$user->{login}, $user->{name},
+		$self->get_url('renew_password', {uid => $user->{uid}, token => $token, timestamp => $timestamp}),
+		localtime($timestamp)->strftime('%F %T')
+	);
+	$body .= $texts->{email_footer};
+
+	sendmail($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
+}
+
 ################################################################################
 
 sub default_texts() {
@@ -194,11 +212,25 @@ sub default_texts() {
 		subject_points_changed => 'Změna v bodování řešení úlohy',
 		subject_comment_and_points => 'Přidán komentář a změna bodování u řešení úlohy',
 		subject_multiple_solutions => 'Změny u více řešení',
+		subject_renew_password => 'Obnovení zapomenutého hesla',
 
 		points_changed => 'Změna bodů',
 		status_changed => 'Změna stavu',
 		status_rated => 'ohodnoceno',
 		status_not_rated => 'neohodnoceno',
+
+		renew_password_template => <<EOF,
+Byl přijat požadavek na změnu hesla v odevzdávacím systému úkolů
+z UNIXu pro účet %s (%s).
+
+Pokud chcete heslo změnit, přistupte na následující odkaz:
+
+%s
+
+Pokud heslo změnit nechcete, tak email ignorujte, platnost tokenu vyprší
+%s.
+
+EOF
 
 		email_template => <<EOF,
 Změny u řešení úlohy %s:

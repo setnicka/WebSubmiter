@@ -83,6 +83,55 @@ sub manage_logout() {
 	$self->{Main}->logout();
 }
 
+sub manager_renew_password() {
+	my $self = shift;
+	my $data = $self->{Main}->{data};
+	my $texts = $self->{Main}->{View}->{texts};
+
+	if (length $data->{token} && length $data->{timestamp}) {
+		$self->{Main}->{status} = 'change_unauthorized';
+
+		# Checks
+		my $user = $self->{Model}->get_user($data->{uid});
+		unless (defined $user && length $user->{renew_passwd_token}) {
+			$self->{Main}->{errors}->{renew_password} = $texts->{error_renew_password_unknown};
+			return;
+		}
+		unless ($data->{timestamp} >= time() && sha1_hex($user->{renew_passwd_token}, $data->{timestamp}) eq $data->{token}) {
+			$self->{Main}->{errors}->{renew_password} = $texts->{error_renew_password_invalid};
+			return;
+		}
+
+		# All checks OK:
+		$self->{Main}->{status} = 'change_authorized';
+		return unless length($data->{passwd});
+
+		my $errors = {};
+		$errors->{passwd} = sprintf($texts->{error_passwd_min_length}, 5) if length($data->{passwd}) < 5;
+		$errors->{passwd} = $texts->{error_passwd_mismatch} if $data->{passwd} ne $data->{passwd_check};
+		$self->{Main}->{errors} = $errors;
+		return unless not keys %$errors;
+
+		# All check OK + new password valid:
+		$self->{Model}->change_password($data);
+		$self->{Main}->{status} = 'change_completed';
+	} else {
+		$self->{Main}->{status} = 'show_form';
+		# Checks:
+		return unless length($data->{login});
+		my $user = $self->{Model}->get_user_by_login_or_email($data->{login});
+		unless (defined $user) {
+			$self->{Main}->{errors}->{renew_password} = $texts->{error_renew_password_not_found};
+			return;
+		}
+
+		# All checks OK:
+		my ($token, $timestamp) = $self->{Model}->get_renew_password_token($user);
+		$self->{Email}->send_renew_password_email($user, $token, $timestamp);
+		$self->{Main}->{status} = 'email_sended';
+	}
+}
+
 sub manage_task() {
 	my $self = shift;
 	my $data = $self->{Main}->{data};
