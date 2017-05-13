@@ -14,6 +14,7 @@ use WebTaskSubmitter;
 my $webTaskSubmitter = new WebTaskSubmitter({
 	teacher_accounts => ['setnicka'], # usernames of teachers
 	# Use only existing accounts. You have to log out and log in again to apply new roles.
+	points_limit => 2/3,
 
 	db_file => "data/webtaskdb.sqlite", # WARNING: the directory with SQLite DB file must be writable by sqlite process (chmod this directory)
 	tasks_file => "data/tasks.pl",

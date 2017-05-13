@@ -204,8 +204,11 @@ sub tasklist_page() {
 
 	my @tasks = $self->{Model}->get_enabled_tasks($user->{teacher} ? undef : $user->{uid});
 
+	my $max_points = 0;
+	my $student_points = 0;
 	foreach my $task (@tasks) {
 		my $deadline = str2time($task->{deadline});
+
 
 		my @classes = ();
 		my $status;
@@ -229,6 +232,9 @@ sub tasklist_page() {
 		my $points = '-';
 		$points = $task->{points} if $task->{points} > 0 || $task->{count_solutions_rated} > 0;
 
+		$max_points += $task->{max_points};
+		$student_points += $task->{points} if $task->{points} > 0 || $task->{count_solutions_rated} > 0;
+
 		$out .= "<tr class='$classes'>";
 		$out .= sprintf "<th><a href='%s'>$task->{name}</a></th>", $self->get_url('task', {code => $task->{code}});
 		if ($user->{teacher}) {
@@ -242,6 +248,19 @@ sub tasklist_page() {
 		$out .= "<td>$task->{short_desc}</td>";
 		$out .= "</tr>\n";
 	}
+
+	my $pp = $student_points/$max_points;
+
+	$out .= sprintf "<tr><th colspan='2'>$texts->{tasklist_total_points}</th><th>%d / %d (%.1f%%)</th><th colspan='2'>%s</th></tr>\n",
+		$student_points, $max_points, $pp * 100,
+		(defined $options->{points_limit} ?
+			sprintf($pp >= $options->{points_limit} ?
+				"<span style='color: green;'>$texts->{tasklist_total_good}</span>"
+				: "<span style='color: red;'>$texts->{tasklist_total_bad}</span>",
+				$options->{points_limit} * 100
+			)
+		: '') unless $user->{teacher};
+
 	$out .= "</tbody></table>\n";
 
 	return $out;
@@ -492,6 +511,7 @@ sub get_epiceditor() {
 sub usertable_page() {
 	my $self = shift;
 	my $texts = $self->{texts};
+	my $options = $self->{Main}->{options};
 	my $user = $self->{Main}->{user};
 
 	$self->{title} = $texts->{usertable_title};
@@ -519,7 +539,18 @@ sub usertable_page() {
 		$out .= "<th class='vertical'>$bonus->{name}</a></th>";
 	}
 	$out .= "</tr>\n</thead><tbody>\n";
+
+	$out .= "<tr style='background-color: #dddddd;'><th>$texts->{usertable_maximalist}</th>";
+	my $max_points = 0;
+	for my $task (@tasks) {
+		$max_points += $task->{max_points};
+		$out .= sprintf "<th>%d</th>", $task->{max_points};
+	}
+	$out .= "<td>--</td>" x (scalar @bonuses);
+	$out .= sprintf "<th>%d</th></tr>\n", $max_points;
+	my @rows = [];
 	for my $student (@students) {
+		my $row_out = '';
 		utf8::decode($student->{name});
 		utf8::decode($student->{nick});
 
@@ -527,34 +558,42 @@ sub usertable_page() {
 		my $bonus_points = $all_bonus_points->{$student->{uid}};
 		my $sum = 0;
 
-		$out .= sprintf("<tr><th>%s (%s)</th>", html_escape($student->{name}), html_escape($student->{nick})) if $user->{teacher};
-		$out .= sprintf("<tr><th>%s</th>", html_escape($student->{nick})) unless $user->{teacher};
+		$row_out .= sprintf("<tr><th>%s (%s)</th>", html_escape($student->{name}), html_escape($student->{nick})) if $user->{teacher};
+		$row_out .= sprintf("<tr><th>%s</th>", html_escape($student->{nick})) unless $user->{teacher};
 
 		for my $task (@tasks) {
 			my $max_points = $grouped_solutions->{$task->{code}}->{max_points};
 			$sum += $max_points;
 			$max_points = '' unless length($max_points);
 			if ($max_points eq '') {
-				$out .= "<td></td>";
+				$row_out .= "<td></td>";
 			} elsif ($user->{uid} == $student->{uid}) {
-				$out .= sprintf("<td><a href='%s'>$max_points</a></td>", $self->get_url('task', {code => $task->{code}}));
+				$row_out .= sprintf("<td><a href='%s'>$max_points</a></td>", $self->get_url('task', {code => $task->{code}}));
 			} elsif ($user->{teacher}) {
-				$out .= sprintf("<td><a href='%s#user$student->{uid}'>$max_points</a></td>", $self->get_url('task', {code => $task->{code}}));
+				$row_out .= sprintf("<td><a href='%s#user$student->{uid}'>$max_points</a></td>", $self->get_url('task', {code => $task->{code}}));
 			} else {
-				$out .= "<td>$max_points</td>";
+				$row_out .= "<td>$max_points</td>";
 			}
 		}
 		for my $bonus (@bonuses) {
 			if (defined $bonus_points->{$bonus->{bonus}}) {
 				$sum += $bonus_points->{$bonus->{bonus}}->{points};
-				$out .= "<td>$bonus_points->{$bonus->{bonus}}->{points}</td>";
+				$row_out .= "<td>$bonus_points->{$bonus->{bonus}}->{points}</td>";
 			} else {
-				$out .= "<td></td>";
+				$row_out .= "<td></td>";
 			}
 		}
 
-		$out .= "<th>$sum</th></tr>\n";
+		$row_out .= sprintf "<th %s>%d (%.1f%%)</th></tr>\n",
+			(defined $options->{points_limit} && $sum / $max_points >= $options->{points_limit}) ? 'style="background-color: #36D336;"' : '',
+			$sum, (100 * $sum/$max_points);
+
+		push @rows, [$sum, $row_out];
 	}
+
+	$out .= join('', map {$_->[1]} sort {$b->[0] <=> $a->[0]} @rows);
+
+
 	$out .= "</tbody>\n</table>\n";
 
 	return $out;
@@ -771,6 +810,9 @@ sub default_texts() {
 		tasklist_deadline => 'Termín',
 		tasklist_solutions => 'Celkem řešení',
 		tasklist_solutions_unrated => 'Neohodnocených řešení',
+		tasklist_total_points => 'Celkem bodů',
+		tasklist_total_good => 'Více než %.1f%% bodů, OK',
+		tasklist_total_bad => 'Méně než %.1f%% bodů, chce to více zabrat',
 
 		task_title => 'Úloha',
 		task_deadline => 'Deadline',
@@ -806,6 +848,7 @@ sub default_texts() {
 		usertable_sum => 'Součet',
 		usertable_tasks => 'Úlohy',
 		usertable_bonuses => 'Bonusy',
+		usertable_maximalist => 'MAX bodů',
 
 		bonustable_title => 'Bonusové body',
 
