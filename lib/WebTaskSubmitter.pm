@@ -151,7 +151,7 @@ sub process($) {
 	################
 
 	# 1) When not logged in, redirect to login page
-	if (!defined $self->{user} && $self->{page} ne 'login' && ! $self->{page} ~~ ['login', 'registration', 'renew_password']) {
+	unless (defined $self->{user} || $self->{page} ~~ ['login', 'registration', 'renew_password']) {
 		$self->redirect('login');
 	}
 
