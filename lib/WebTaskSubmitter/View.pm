@@ -249,7 +249,8 @@ sub tasklist_page() {
 		$out .= "</tr>\n";
 	}
 
-	my $pp = $student_points/$max_points;
+	my $pp = 0;
+	$pp = $student_points/$max_points if $max_points > 0;
 
 	$out .= sprintf "<tr><th colspan='2'>$texts->{tasklist_total_points}</th><th>%d / %d (%.1f%%)</th><th colspan='2'>%s</th></tr>\n",
 		$student_points, $max_points, $pp * 100,
