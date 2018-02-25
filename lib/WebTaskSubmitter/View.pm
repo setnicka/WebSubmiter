@@ -617,8 +617,8 @@ sub usertable_page() {
 		}
 
 		$row_out .= sprintf "<th %s>%d (%.1f%%)</th></tr>\n",
-			(defined $options->{points_limit} && $sum / $max_points >= $options->{points_limit}) ? 'style="background-color: #36D336;"' : '',
-			$sum, (100 * $sum/$max_points);
+			(defined $options->{points_limit} && $max_points > 0 && $sum / $max_points >= $options->{points_limit}) ? 'style="background-color: #36D336;"' : '',
+			$sum, ($max_points > 0 ? 100 * $sum/$max_points : 0);
 
 		push @rows, [$sum, $row_out];
 	}
