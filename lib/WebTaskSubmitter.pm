@@ -34,12 +34,13 @@ sub new {
 }
 
 sub redirect() {
-	my ($self, $page, $parameters) = @_;
+	my ($self, $page, $parameters, $anchor) = @_;
 	my $location = "$self->{options}->{script_url}";
 	$location .= "?page=$page"; #unless $page eq DEFAULT_PAGE;
 	foreach my $param (sort keys %$parameters) {
 		$location .= sprintf '&%s=%s', $param, $parameters->{$param};
 	}
+	$location .= "#$anchor" if $anchor;
 	print "Location: $location\n\n";
 	exit 0;
 }
