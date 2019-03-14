@@ -129,6 +129,7 @@ sub process($) {
 		solution_comment=> { var => \$data->{solution_comment}, multiline => 1, default => ''},
 		set_points	=> { var => \$data->{set_points}, check => '\d+', default => ''},
 		set_status	=> { var => \$data->{set_status}, check => 'open|rated', default => 'open' },
+		mark_viewed	=> { var => \$data->{mark_viewed}, check => '\d+', default => ''},
 		# Mailer
 		mailer_target	=> { var => \$data->{mailer_target}, check => 'all|with-submits|without-submits|single', default => 'all' },
 		mailer_subject	=> { var => \$data->{mailer_subject} },

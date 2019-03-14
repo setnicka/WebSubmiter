@@ -236,7 +236,10 @@ sub get_all_solutions() {
 		@values = ($task);
 	}
 
-	my $sth = $dbh->prepare('SELECT *,datetime(date,"localtime") AS local_date FROM solutions LEFT JOIN users USING(uid) '.$where_sql);
+	my $sth = $dbh->prepare('SELECT *,datetime(date,"localtime") AS local_date,
+		(SELECT MAX(CID) FROM comments WHERE comments.sid=solutions.sid) AS last_comment
+		FROM solutions LEFT JOIN users USING(uid) '.$where_sql
+	);
 	$sth->execute(@values);
 
 	return $sth->fetchall_hashref(['uid', 'sid']);
@@ -310,6 +313,34 @@ sub add_comment() {
 
 	my ($cid) = $dbh->selectrow_array('SELECT last_insert_rowid()');
 	return $cid;
+}
+
+sub get_last_viewed_comment() {
+	my ($self, $uid, $sid) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('SELECT cid FROM comments_viewed WHERE uid=? AND sid=?');
+	$sth->execute($uid, $sid);
+	my $result = $sth->fetch();
+	return $result->[0] if $result;
+	return 0;
+}
+
+sub get_last_viewed_comments() {
+	my ($self, $uid) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('SELECT sid, cid FROM comments_viewed WHERE uid=?');
+	$sth->execute($uid);
+	return $sth->fetchall_hashref('sid');
+}
+
+sub set_last_viewed_comment() {
+	my ($self, $uid, $sid, $cid) = @_;
+	my $dbh = $self->{Main}->{dbh};
+
+	my $sth = $dbh->prepare('INSERT OR REPLACE INTO comments_viewed(uid, sid, cid) VALUES (?, ?, ?)');
+	$sth->execute($uid, $sid, $cid);
 }
 
 #### NOTIFICATIONS #############################################################

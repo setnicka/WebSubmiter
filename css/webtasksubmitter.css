@@ -43,6 +43,9 @@ div.comment span.author {
 	border-bottom: 1px #cccccc solid;
 	border-bottom-color: inherit;
 }
+div.comment.new {
+	box-shadow: 0px 0px 7px 4px #a94442
+}
 
 div.comment span.date {
 	float: right;
@@ -55,6 +58,8 @@ table.tasklist tr.missed.not_submitted { background-color: red; color: #dddddd; 
 table.tasklist tr.full_points, table.solutions tr.full_points { background-color: #88FF56 }
 table.tasklist tr.part_points, table.solutions tr.part_points { background-color: #C5FAAF }
 table.tasklist tr.waiting, table.solutions tr.waiting { background-color: #FCB675; }
+table.solutions i.far {font-size: 1.7em }
+table.solutions tr.new_comments { background-color: rgb(255, 199, 13); }
 
 table.usertable th.vertical { writing-mode: tb-rl; }
 

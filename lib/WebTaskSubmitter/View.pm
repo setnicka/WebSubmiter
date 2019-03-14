@@ -268,7 +268,7 @@ sub tasklist_page() {
 }
 
 sub print_solutions() {
-	my ($self, $all_solutions, $task, $counts, $highlight) = @_;
+	my ($self, $all_solutions, $task, $counts, $last_viewed, $highlight) = @_;
 	my $texts = $self->{texts};
 	my $user = $self->{Main}->{user};
 
@@ -295,6 +295,11 @@ sub print_solutions() {
 			$class .= ' highlight' if $highlight == $sid;
 
 			my $status = $solution->{rated} ? $texts->{status_rated} : $texts->{status_submitted};
+
+			if ($last_viewed->{$sid}->{cid} < $solution->{last_comment}) {
+				$status .= "<i class='far fa-comments pull-right' title='$texts->{new_comments}'></i>";
+				$class .= " new_comments";
+			}
 
 			$out .= "<tr class='$class'>";
 			$out .= sprintf "<td>%s</td>", html_escape($solution->{name}) if $user->{teacher};
@@ -360,7 +365,8 @@ sub task_page() {
 	}
 
 	$out .= "<hr><h3>$texts->{solutions_list}</h3>\n";
-	$out .= $self->print_solutions($all_solutions, $task, $counts);
+	my $last_viewed = $self->{Model}->get_last_viewed_comments($user->{uid});
+	$out .= $self->print_solutions($all_solutions, $task, $counts, $last_viewed);
 
 	return $out if $user->{teacher};  # Teachers cannot add new solutions
 	unless ($data->{action} eq 'new') {
@@ -411,6 +417,7 @@ sub solution_page() {
 	my $counts = $self->{Model}->get_solution_counts($user->{teacher} ? undef : $user->{uid}, $solution->{task})->{$solution->{task}};
 	utf8::decode($solution->{code});
 	utf8::decode($solution->{name});
+	my $last_viewed_comment = $self->{Model}->get_last_viewed_comment($user->{uid}, $data->{sid});
 
 	################
 	$self->{title} = "$texts->{solution_title} $task->{name}";
@@ -428,9 +435,10 @@ sub solution_page() {
 	my $status = $solution->{rated} ? $texts->{status_rated} : $texts->{status_submitted};
 
 	my $all_solutions = $self->{Model}->get_all_solutions($solution->{uid}, $solution->{task});
+	my $last_viewed = $self->{Model}->get_last_viewed_comments($user->{uid});
 	if (scalar keys %{$all_solutions->{$solution->{uid}}} > 1) {  # If there is more than one solution from the same user
 		$out .= "<hr><h3>$texts->{solution_other_solutions}</h3>\n";
-		$out .= $self->print_solutions($all_solutions, $task, $counts, $data->{sid});
+		$out .= $self->print_solutions($all_solutions, $task, $counts, $last_viewed, $data->{sid});
 	}
 
 	$out .= "<hr><h3>$texts->{solution_submitted_solution}</h3>\n";
@@ -461,19 +469,28 @@ sub solution_page() {
 	$out .= "<h3 id='comments'>$texts->{solution_comments}</h3>\n";
 
 	my $comments = $self->{Model}->get_all_comments($data->{sid});
+	my $newest_comment = 0;
 	for my $key (sort { $a <=> $b } keys %$comments) {
 		my $comment = $comments->{$key};
 		utf8::decode($comment->{html});
 		utf8::decode($comment->{name});
 
-		my $teacher_class = ($comment->{teacher} ? ' teacher' : '');
+		my $extra_class = ($comment->{teacher} ? ' teacher' : '');
+		$extra_class .= ($comment->{cid} > $last_viewed_comment ? ' new' : '');
 		my $author = html_escape($comment->{name});
 		$author .= " ($texts->{comment_teacher})" if $comment->{teacher};
 
-		$out .= "<div class='comment$teacher_class'>\n";
+		$out .= "<div class='comment$extra_class'>\n";
 		$out .= "<span class='date'>$comment->{local_date}</span><span class='author'>$texts->{comment_author}: <strong>$author</strong></span>\n";
 		$out .= $comment->{html};
 		$out .= "</div>\n";
+		$newest_comment = $comment->{cid};
+	}
+	if ($newest_comment > $last_viewed_comment) {
+		$out .= "<form method='post' class='pull-right'>\n";
+		$out .= "<input type='hidden' value='$newest_comment' name='mark_viewed'>\n";
+		$out .= "<button type='submit' name='submit' class='btn btn-info btn-xs'>$texts->{comment_mark_as_read}</button>\n";
+		$out .= "</form>\n";
 	}
 
 	$out .= "<form method='post'>\n";
@@ -510,6 +527,7 @@ sub default_headers() {
 	my $options = $self->{Main}->{options};
 	my $out = "";
 	$out .= "<link href='$options->{css_path}/bootstrap.css' rel='stylesheet' type='text/css'>\n";
+	$out .= "<link rel='stylesheet' href='https://use.fontawesome.com/releases/v5.7.2/css/all.css' integrity='sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr' crossorigin='anonymous'>\n";
 	$out .= "<link href='$options->{css_path}/webtasksubmitter.css' rel='stylesheet' type='text/css'>\n";
 
 	return $out;
@@ -771,6 +789,7 @@ sub default_texts() {
 		status_not_submitted => 'Neodevzdáno',
 		status_submitted => 'Odevzdáno, čeká na ohodnocení',
 		status_rated => 'Ohodnoceno',
+		new_comments => 'Nové komentáře',
 
 		form_user => 'Uživatel',
 		form_login => 'Login',
@@ -878,6 +897,7 @@ sub default_texts() {
 		comment_author => 'Autor',
 		comment_date => 'Datum',
 		comment_teacher => 'učitel',
+		comment_mark_as_read => 'Označit za přečtené',
 
 		usertable_title => 'Tabulka bodů',
 		usertable_student => 'Student',

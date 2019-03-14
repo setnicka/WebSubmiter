@@ -180,6 +180,8 @@ sub manage_solution() {
 	if (length($data->{solution_comment})) {
 		# Add comment
 		my $cid = $self->{Model}->add_comment($data->{sid}, $user, $data->{solution_comment});
+		# ... and mark it as viewed (as the author hopefully knows what he wrote)
+		$self->{Model}->set_last_viewed_comment($user->{uid}, $data->{sid}, $cid);
 
 		$self->{Email}->notify_comment($row->{uid}, $data->{sid}, $row->{task}, $cid, $data->{solution_comment}) if $user->{teacher};
 
@@ -202,6 +204,11 @@ sub manage_solution() {
 		$self->{Email}->notify_points_changed($row->{uid}, $data->{sid}, $row->{task}, $row, {points => $data->{set_points}, rated => $rated});
 
 		$self->{Main}->redirect('solution', {sid => $data->{sid}});
+	}
+
+	if ($data->{mark_viewed}) {
+		$self->{Model}->set_last_viewed_comment($user->{uid}, $data->{sid}, $data->{mark_viewed});
+		$self->{Main}->redirect('solution', {sid => $data->{sid}}, "comments");
 	}
 }
 
