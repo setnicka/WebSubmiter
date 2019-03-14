@@ -285,21 +285,21 @@ sub print_solutions() {
 			$out .= "<th>$texts->{solutions_detail}</th>";
 		$out .= "</tr>\n</thead><tbody>\n";
 
-		for my $key (sort { $a <=> $b } keys %$user_solutions) {
-			my $solution = $user_solutions->{$key};
+		for my $sid (sort { $a <=> $b } keys %$user_solutions) {
+			my $solution = $user_solutions->{$sid};
 			utf8::decode($solution->{name});
 
 			my $class = $solution->{points} == $counts->{max_points} ? 'full_points' : 'part_points';
 			$class = 'waiting' unless $solution->{rated};
 
-			$class .= ' highlight' if $highlight == $key;
+			$class .= ' highlight' if $highlight == $sid;
 
 			my $status = $solution->{rated} ? $texts->{status_rated} : $texts->{status_submitted};
 
 			$out .= "<tr class='$class'>";
 			$out .= sprintf "<td>%s</td>", html_escape($solution->{name}) if $user->{teacher};
 			$out .= "<td>$solution->{local_date}</td><td>$status</td><td>$solution->{points} / $task->{max_points}</td>";
-			$out .= sprintf "<td><a href='%s'>$texts->{solutions_detail}</a></td></tr>\n", $self->get_url('solution', {sid => $solution->{sid}});
+			$out .= sprintf "<td><a href='%s'>$texts->{solutions_detail}</a></td></tr>\n", $self->get_url('solution', {sid => $sid});
 		}
 
 		$out .= "</tbody>\n";
@@ -458,7 +458,7 @@ sub solution_page() {
 	});
 	</script>\n";
 
-	$out .= "<h3>$texts->{solution_comments}</h3>\n";
+	$out .= "<h3 id='comments'>$texts->{solution_comments}</h3>\n";
 
 	my $comments = $self->{Model}->get_all_comments($data->{sid});
 	for my $key (sort { $a <=> $b } keys %$comments) {
@@ -479,7 +479,8 @@ sub solution_page() {
 	$out .= "<form method='post'>\n";
 	$out .= "<div class='form-group'>\n<label for='solution_comment'>$texts->{form_comment}:</label>\n";
 	$out .= "<div id='epiceditor'><textarea class='form-control' name='solution_comment' id='solution_comment'></textarea></div>\n</div>\n";
-	$out .= "<button type='submit' class='btn btn-primary'>$texts->{form_submit_add_comment}</button>\n";
+	$out .= "<button type='submit' name='submit' class='btn btn-primary'>$texts->{form_submit_add_comment}</button>\n";
+	$out .= "<button type='submit' name='submit' value='set-max-points' class='btn btn-primary'>$texts->{form_submit_add_comment_and_set_max_points}</button>\n" if $user->{teacher};
 	$out .= "</form>\n";
 	$out .= $self->get_epiceditor();
 
@@ -790,6 +791,7 @@ sub default_texts() {
 		form_submit_add_comment => 'Přidat komentář',
 		form_submit_set => 'Nastav',
 		form_submit_set_max_points => 'Nastav plné body',
+		form_submit_add_comment_and_set_max_points => 'Přidat komentář a nastavit plné body',
 		form_submit_prepare => 'Připrav k odeslání',
 		form_submit_back => 'Zpět',
 
@@ -871,6 +873,7 @@ sub default_texts() {
 		solution_code => 'Kód řešení',
 		solution_back_to_task => 'Zpět na zadání úlohy',
 		solution_download => 'Stáhnout řešení',
+		solution_comments => 'Komentáře',
 
 		comment_author => 'Autor',
 		comment_date => 'Datum',

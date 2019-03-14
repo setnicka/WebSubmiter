@@ -114,6 +114,7 @@ sub process($) {
 		action		=> { var => \$data->{action}, check => 'new|download', default => '' },
 		code		=> { var => \$data->{code}, check => '\w+' },
 		send_notifications => { var => \$send_notifications },
+		submit		=> { var => \$data->{submit} },
 		# Login/registration related fields
 		uid		=> { var => \$data->{uid}, check => '\d+'},
 		login		=> { var => \$data->{login} },

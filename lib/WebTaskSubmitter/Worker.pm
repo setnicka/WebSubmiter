@@ -178,20 +178,29 @@ sub manage_solution() {
 
 	# If there is comment submitted
 	if (length($data->{solution_comment})) {
+		# Add comment
 		my $cid = $self->{Model}->add_comment($data->{sid}, $user, $data->{solution_comment});
 
 		$self->{Email}->notify_comment($row->{uid}, $data->{sid}, $row->{task}, $cid, $data->{solution_comment}) if $user->{teacher};
-		$self->{Main}->redirect('solution', {sid => $data->{sid}});
+
+		if ($user->{teacher} && $data->{submit} eq 'set-max-points') {
+			my $max_points = $self->{Model}->get_task($row->{task})->{max_points};
+			$self->{Model}->solution_set_points($data->{sid}, $max_points, 1);
+			$self->{Email}->notify_points_changed($row->{uid}, $data->{sid}, $row->{task}, $row, {points => $max_points, rated => 1});
+		}
+
+		$self->{Main}->redirect('solution', {sid => $data->{sid}}, "comments");
 	}
 
+	# Teacher only actions
 	if ($user->{teacher} && length($data->{set_points})) {
 		my $rated = ($data->{set_status} eq 'rated');
 
 		return if $row->{points} == $data->{set_points} && $row->{rated} == $rated;
 
 		$self->{Model}->solution_set_points($data->{sid}, $data->{set_points}, $rated);
-
 		$self->{Email}->notify_points_changed($row->{uid}, $data->{sid}, $row->{task}, $row, {points => $data->{set_points}, rated => $rated});
+
 		$self->{Main}->redirect('solution', {sid => $data->{sid}});
 	}
 }
