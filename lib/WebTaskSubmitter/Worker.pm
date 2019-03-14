@@ -152,7 +152,7 @@ sub manage_task() {
 	}
 
 	# If there is solution submitted
-	if (length($data->{solution_code})) {
+	if (length($data->{solution_code}) || length($data->{solution_comment})) {
 		my $sid = $self->{Model}->add_solution($data->{code}, $user->{uid}, $data->{solution_code});
 		$self->{Model}->add_comment($sid, $user, $data->{solution_comment}) if length($data->{solution_comment});
 		$self->{Main}->redirect('solution', {sid => $sid});
