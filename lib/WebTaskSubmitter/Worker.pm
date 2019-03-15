@@ -297,7 +297,7 @@ sub manage_mailer() {
 	return unless $data->{mailer_send};
 
 	for my $target (@targets) {
-		WebTaskSubmitter::Email::sendmail($options->{emails_from}, sprintf("%s <%s>", $target->{name}, $target->{email}), $data->{mailer_subject}, $data->{mailer_text});
+		WebTaskSubmitter::Email::send_email($options->{emails_from}, sprintf("%s <%s>", $target->{name}, $target->{email}), $data->{mailer_subject}, $data->{mailer_text});
 	}
 
 	$self->{Main}->redirect('mailer', {mailer_sended => 1});

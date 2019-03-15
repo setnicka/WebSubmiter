@@ -1,7 +1,9 @@
 package WebTaskSubmitter::Email;
 
 use common::sense;
-use Mail::Sendmail;
+#use Mail::Sendmail;
+use Email::MIME;
+use Email::Sender::Simple qw(sendmail);
 use Encode;
 use Time::Piece;
 
@@ -18,25 +20,26 @@ sub new {
 
 use utf8;
 
-sub sendmail {
+sub send_email {
 	my ($from, $to, $subject, $body) = @_;
 
-	$from = Encode::encode('MIME-Q', $from);
-	$to = Encode::encode('MIME-Q', $to);
-	$subject = Encode::encode('MIME-Q', $subject);
+	#my $efrom = Encode::encode('MIME-Header', $from);
+	#my $eto = Encode::encode('MIME-Header', $to);
+	#my $esubject = Encode::encode('MIME-Header', $subject);
 
-	open(SENDMAIL, "| /usr/sbin/sendmail -t") or die("Failed to open pipe to sendmail: $!");
-	binmode(SENDMAIL, ":utf8");
-	print SENDMAIL <<"EOF";
-Content-Transfer-Encoding: 8bit
-Content-type: text/plain; charset=UTF-8
-Subject: $subject
-From: $from
-To: $to
-
-$body
-EOF
-	close (SENDMAIL);
+	my $message = Email::MIME->create(
+		header_str => [
+			From    => $from,
+			To      => $to,
+			Subject => $subject,
+		],
+		attributes => {
+			encoding => 'quoted-printable',
+			charset  => 'UTF-8',
+		},
+		body_str => $body,
+	);
+	sendmail($message);
 }
 
 sub get_url($$) {
@@ -74,7 +77,7 @@ sub notify_comment() {
 		$body .= $texts->{email_footer};
 		my $user = $self->{Model}->get_user($uid);
 		utf8::decode($user->{name});
-		sendmail($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
+		send_email($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
 		$sended = 1;
 	}
 
@@ -111,7 +114,7 @@ sub notify_points_changed() {
 		$body .= $texts->{email_footer};
 		my $user = $self->{Model}->get_user($uid);
 		utf8::decode($user->{name});
-		sendmail($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
+		send_email($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
 
 		$sended = 1;
 	}
@@ -179,7 +182,7 @@ sub send_prepared_notifications() {
 
 		$body .= $texts->{email_footer};
 		utf8::decode($user->{name});
-		sendmail($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
+		send_email($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
 	}
 
 	$self->{Model}->set_notifications_sended($max_nid);
@@ -200,7 +203,7 @@ sub send_renew_password_email() {
 	);
 	$body .= $texts->{email_footer};
 
-	sendmail($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
+	send_email($options->{emails_from}, sprintf("%s <%s>", $user->{name}, $user->{email}), $subject, $body);
 }
 
 ################################################################################
